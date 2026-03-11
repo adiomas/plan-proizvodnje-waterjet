@@ -9,7 +9,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isRegister, setIsRegister] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -18,23 +17,14 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    if (isRegister) {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-        return;
-      }
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-        return;
-      }
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
     }
 
     router.push("/dashboard");
@@ -87,22 +77,9 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-blue-600 text-white py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading
-              ? "..."
-              : isRegister
-              ? "Registracija"
-              : "Prijava"}
+            {loading ? "..." : "Prijava"}
           </button>
         </form>
-
-        <button
-          onClick={() => setIsRegister(!isRegister)}
-          className="w-full mt-3 text-sm text-blue-600 hover:underline"
-        >
-          {isRegister
-            ? "Već imaš račun? Prijavi se"
-            : "Nemaš račun? Registriraj se"}
-        </button>
       </div>
     </div>
   );
