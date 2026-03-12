@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Machine, NewWorkOrder } from "@/lib/types";
+import { DateInput, parseDateInput } from "@/components/ui/date-input";
 
 interface NewOrderSheetProps {
   open: boolean;
@@ -22,8 +23,10 @@ export function NewOrderSheet({
   const [machineId, setMachineId] = useState(machines[0]?.id ?? "");
   const [trajanjeH, setTrajanjeH] = useState("1");
   const [rokIsporuke, setRokIsporuke] = useState("");
+  const [rokDisplay, setRokDisplay] = useState("");
   const [redoslijed, setRedoslijed] = useState("");
   const [najraniji, setNajraniji] = useState("");
+  const [najranijiDisplay, setNajranijiDisplay] = useState("");
   const [saving, setSaving] = useState(false);
 
   if (!open) return null;
@@ -53,8 +56,10 @@ export function NewOrderSheet({
     setNapomena("");
     setTrajanjeH("1");
     setRokIsporuke("");
+    setRokDisplay("");
     setRedoslijed("");
     setNajraniji("");
+    setNajranijiDisplay("");
     onClose();
   };
 
@@ -97,7 +102,7 @@ export function NewOrderSheet({
         <div className={compact ? "grid grid-cols-3 gap-2" : "grid grid-cols-2 gap-3"}>
           <div>
             <label className={labelClass}>Rok isporuke</label>
-            <input type="date" value={rokIsporuke} onChange={(e) => setRokIsporuke(e.target.value)} className={ic} />
+            <DateInput value={rokIsporuke} displayValue={rokDisplay} onChange={(iso, disp) => { setRokIsporuke(iso); setRokDisplay(disp); }} onDisplayChange={(v) => { setRokDisplay(v); const iso = parseDateInput(v); if (iso) setRokIsporuke(iso); else if (!v) setRokIsporuke(""); }} className={ic} />
           </div>
           <div>
             <label className={labelClass}>Redoslijed</label>
@@ -105,7 +110,7 @@ export function NewOrderSheet({
           </div>
           <div className={compact ? "" : "col-span-2"}>
             <label className={labelClass}>Najraniji početak</label>
-            <input type="date" value={najraniji} onChange={(e) => { setNajraniji(e.target.value); if (e.target.value) setRedoslijed(""); }} className={ic} />
+            <DateInput value={najraniji} displayValue={najranijiDisplay} onChange={(iso, disp) => { setNajraniji(iso); setNajranijiDisplay(disp); setRedoslijed(""); }} onDisplayChange={(v) => { setNajranijiDisplay(v); const iso = parseDateInput(v); if (iso) { setNajraniji(iso); setRedoslijed(""); } else if (!v) setNajraniji(""); }} className={ic} />
           </div>
         </div>
         <p className="text-[10px] text-gray-400 leading-snug">

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Machine, MachineOverride } from "@/lib/types";
 import { getDay } from "date-fns";
+import { DateInput, parseDateInput } from "@/components/ui/date-input";
 
 interface OverrideModalProps {
   open: boolean;
@@ -38,16 +39,6 @@ export function OverrideModal({
     setWorkStart("07:00");
     setWorkEnd("15:00");
     setError("");
-  };
-
-  /** Parsiraj dd.mm.yyyy → yyyy-mm-dd ISO format */
-  const parseDateInput = (value: string): string | null => {
-    const match = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-    if (!match) return null;
-    const [, dd, mm, yyyy] = match;
-    const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00`);
-    if (isNaN(d.getTime())) return null;
-    return `${yyyy}-${mm}-${dd}`;
   };
 
   /** Validiraj HH:MM 24h format */
@@ -167,16 +158,11 @@ export function OverrideModal({
             </div>
             <div className="min-w-[130px]">
               <label className="text-[10px] text-gray-500 block mb-0.5">Datum</label>
-              <input
-                type="text"
-                placeholder="dd.mm.yyyy"
-                value={dateDisplay}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setDateDisplay(v);
-                  const iso = parseDateInput(v);
-                  setDate(iso ?? "");
-                }}
+              <DateInput
+                value={date}
+                displayValue={dateDisplay}
+                onChange={(iso, disp) => { setDate(iso); setDateDisplay(disp); }}
+                onDisplayChange={(v) => { setDateDisplay(v); const iso = parseDateInput(v); setDate(iso ?? ""); }}
                 className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white"
               />
             </div>

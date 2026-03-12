@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-table";
 import type { Machine, WorkOrder, ScheduledOrder } from "@/lib/types";
 import { formatDayDate, formatTime } from "@/lib/utils";
+import { DateInput } from "@/components/ui/date-input";
 
 interface WorkOrdersViewProps {
   orders: WorkOrder[];
@@ -249,6 +250,28 @@ function EditableCell({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
 
+  const isDate = type === "date";
+
+  const isoToDisplay = (iso: string): string => {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-");
+    return `${d}.${m}.${y}`;
+  };
+
+  const parseDateDraft = (v: string): string | null => {
+    const m = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if (!m) return null;
+    const d = new Date(`${m[3]}-${m[2]}-${m[1]}T00:00:00`);
+    if (isNaN(d.getTime())) return null;
+    return `${m[3]}-${m[2]}-${m[1]}`;
+  };
+
+  const saveDateDraft = (d: string) => {
+    if (!d) { onSave(""); return; }
+    const iso = parseDateDraft(d);
+    if (iso) onSave(iso);
+  };
+
   if (editing) {
     if (type === "select" && options) {
       return (
@@ -270,6 +293,30 @@ function EditableCell({
             </option>
           ))}
         </select>
+      );
+    }
+    if (isDate) {
+      const draftIso = parseDateDraft(draft);
+      return (
+        <DateInput
+          value={draftIso ?? ""}
+          displayValue={draft}
+          onChange={(iso) => {
+            onSave(iso);
+            setEditing(false);
+          }}
+          onDisplayChange={(v) => setDraft(v)}
+          className="w-full bg-white border border-gray-300 rounded px-1 py-0.5 text-xs focus:outline-none focus:border-gray-400"
+          autoFocus
+          onBlur={() => {
+            saveDateDraft(draft);
+            setEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { saveDateDraft(draft); setEditing(false); }
+            if (e.key === "Escape") setEditing(false);
+          }}
+        />
       );
     }
     return (
@@ -298,7 +345,7 @@ function EditableCell({
   return (
     <span
       onClick={() => {
-        setDraft(value);
+        setDraft(isDate ? isoToDisplay(value) : value);
         setEditing(true);
       }}
       className="cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded block truncate min-h-[1.2em]"

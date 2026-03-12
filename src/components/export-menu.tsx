@@ -8,6 +8,7 @@ import {
   downloadWeeklyPDF,
   getMonday,
 } from "@/lib/pdf/generate";
+import { DateInput, parseDateInput } from "@/components/ui/date-input";
 
 interface Props {
   machines: Machine[];
@@ -25,7 +26,14 @@ export function ExportMenu({ machines, scheduled, overrides = [] }: Props) {
     const today = new Date();
     return today.toISOString().split("T")[0];
   });
+  const [dateDisplay, setDateDisplay] = useState(() => {
+    const today = new Date();
+    const iso = today.toISOString().split("T")[0];
+    const [y, m, d] = iso.split("-");
+    return `${d}.${m}.${y}`;
+  });
   const [loading, setLoading] = useState(false);
+
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
@@ -143,10 +151,11 @@ export function ExportMenu({ machines, scheduled, overrides = [] }: Props) {
             <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
               {type === "daily" ? "Datum" : "Tjedan koji sadrži datum"}
             </span>
-            <input
-              type="date"
+            <DateInput
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              displayValue={dateDisplay}
+              onChange={(iso, disp) => { setDate(iso); setDateDisplay(disp); }}
+              onDisplayChange={(v) => { setDateDisplay(v); const iso = parseDateInput(v); if (iso) setDate(iso); }}
               className="mt-0.5 w-full text-xs border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/5"
             />
           </label>
