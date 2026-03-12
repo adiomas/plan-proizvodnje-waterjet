@@ -6,12 +6,8 @@ import {
   isAfter,
   getISOWeek,
 } from "date-fns";
-import type { ScheduledOrder } from "../types";
-import {
-  isWeekend,
-  WORKDAY_START,
-  WORKDAY_END,
-} from "../utils";
+import type { MachineOverride, ScheduledOrder } from "../types";
+import { getWorkingHours } from "../utils";
 
 /** Segment jednog naloga za jedan dan */
 export interface DaySegment {
@@ -101,7 +97,11 @@ export function getOrdersForDate(
   });
 }
 
-export function splitOrderByDay(order: ScheduledOrder): DaySegment[] {
+export function splitOrderByDay(
+  order: ScheduledOrder,
+  machineId: string,
+  overrides: MachineOverride[]
+): DaySegment[] {
   if (!order.start || !order.end) return [];
 
   const segments: DaySegment[] = [];
@@ -109,17 +109,22 @@ export function splitOrderByDay(order: ScheduledOrder): DaySegment[] {
   const endDay = startOfDay(order.end);
 
   while (isBefore(current, endDay) || isSameDay(current, endDay)) {
-    // Ne preskačemo vikende jer je scheduler već postavio naloge na radne dane.
-    // Ako nalog obuhvaća subotu, to je jer je subota radni dan s overridom.
+    const wh = getWorkingHours(machineId, current, overrides);
+    if (!wh) {
+      // Neradni dan (vikend bez overridea) — preskoči
+      current = addDays(current, 1);
+      continue;
+    }
+
     const isFirstDay = isSameDay(current, startOfDay(order.start));
     const isLastDay = isSameDay(current, endDay);
 
     const dayStartHour = isFirstDay
       ? order.start.getHours() + order.start.getMinutes() / 60
-      : WORKDAY_START;
+      : wh.start;
     const dayEndHour = isLastDay
       ? order.end.getHours() + order.end.getMinutes() / 60
-      : WORKDAY_END;
+      : wh.end;
 
     const hours = dayEndHour - dayStartHour;
     if (hours > 0) {
@@ -146,13 +151,15 @@ export function splitOrderByDay(order: ScheduledOrder): DaySegment[] {
 export function getWeekSegments(
   orders: ScheduledOrder[],
   weekStart: Date,
-  machineId: string
+  machineId: string,
+  overrides: MachineOverride[]
 ): Map<string, DaySegment[]> {
   const result = new Map<string, DaySegment[]>();
 
-  // Uključi svih 7 dana (pon-ned) da bi uhvatio overridane subote
+  // Samo dodaj dane gdje postoji radno vrijeme (preskoči vikende bez overridea)
   for (let i = 0; i < 7; i++) {
     const day = addDays(weekStart, i);
+    if (!getWorkingHours(machineId, day, overrides)) continue;
     const key = toLocalDateKey(day);
     result.set(key, []);
   }
@@ -167,7 +174,7 @@ export function getWeekSegments(
   });
 
   for (const order of relevantOrders) {
-    const segments = splitOrderByDay(order);
+    const segments = splitOrderByDay(order, machineId, overrides);
     for (const segment of segments) {
       const key = toLocalDateKey(segment.dayStart);
       const dayList = result.get(key);

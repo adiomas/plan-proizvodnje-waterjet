@@ -52,7 +52,7 @@ function WeeklyPage({
   overrides: MachineOverride[];
 }) {
   const weekEnd = addDays(weekStart, 4); // petak
-  const daySegments = getWeekSegments(orders, weekStart, machine.id);
+  const daySegments = getWeekSegments(orders, weekStart, machine.id, overrides);
   const now = new Date();
 
   // Izračunaj sumarizaciju

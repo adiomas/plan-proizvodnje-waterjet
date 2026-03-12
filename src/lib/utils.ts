@@ -112,6 +112,14 @@ export function getWorkingHours(
   if (override) {
     const start = parseTime(override.work_start);
     const end = parseTime(override.work_end);
+
+    if (!isWeekend(date)) {
+      // Radni dan: merge override s defaultom (prekovremeni = produženje)
+      const mergedStart = Math.min(WORKDAY_START, start);
+      const mergedEnd = Math.max(WORKDAY_END, end);
+      return { start: mergedStart, end: mergedEnd, hours: mergedEnd - mergedStart };
+    }
+    // Vikend: override JE radno vrijeme
     return { start, end, hours: end - start };
   }
 

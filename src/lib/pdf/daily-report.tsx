@@ -55,7 +55,7 @@ function DailyPage({
   // Kreiraj segmente za ovaj dan
   const segments: DaySegment[] = [];
   for (const order of dayOrders) {
-    const orderSegments = splitOrderByDay(order);
+    const orderSegments = splitOrderByDay(order, machine.id, overrides);
     const todaySegment = orderSegments.find((seg) => {
       return toLocalDateKey(seg.dayStart) === toLocalDateKey(date);
     });

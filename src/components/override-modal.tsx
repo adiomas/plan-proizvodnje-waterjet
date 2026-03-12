@@ -22,7 +22,8 @@ export function OverrideModal({
   onDelete,
 }: OverrideModalProps) {
   const [machineId, setMachineId] = useState("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(""); // ISO yyyy-mm-dd
+  const [dateDisplay, setDateDisplay] = useState(""); // dd.mm.yyyy
   const [workStart, setWorkStart] = useState("07:00");
   const [workEnd, setWorkEnd] = useState("15:00");
   const [error, setError] = useState("");
@@ -33,16 +34,37 @@ export function OverrideModal({
   const resetForm = () => {
     setMachineId("");
     setDate("");
+    setDateDisplay("");
     setWorkStart("07:00");
     setWorkEnd("15:00");
     setError("");
+  };
+
+  /** Parsiraj dd.mm.yyyy → yyyy-mm-dd ISO format */
+  const parseDateInput = (value: string): string | null => {
+    const match = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if (!match) return null;
+    const [, dd, mm, yyyy] = match;
+    const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00`);
+    if (isNaN(d.getTime())) return null;
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  /** Validiraj HH:MM 24h format */
+  const isValidTime = (value: string): boolean => {
+    const match = value.match(/^(\d{2}):(\d{2})$/);
+    if (!match) return false;
+    const h = Number(match[1]);
+    const m = Number(match[2]);
+    return h >= 0 && h <= 23 && m >= 0 && m <= 59;
   };
 
   const handleAdd = async () => {
     setError("");
 
     if (!machineId) { setError("Odaberi stroj"); return; }
-    if (!date) { setError("Odaberi datum"); return; }
+    if (!date) { setError("Unesi datum (dd.mm.yyyy)"); return; }
+    if (!isValidTime(workStart) || !isValidTime(workEnd)) { setError("Vrijeme mora biti u formatu HH:MM (24h)"); return; }
     if (workEnd <= workStart) { setError("Kraj mora biti nakon početka"); return; }
 
     const exists = overrides.find(
@@ -87,10 +109,20 @@ export function OverrideModal({
   const getMachineName = (id: string) => machines.find((m) => m.id === id)?.name ?? "—";
   const getMachineColor = (id: string) => machines.find((m) => m.id === id)?.color ?? "#999";
 
-  const calcHours = (start: string, end: string) => {
+  const calcHours = (dateStr: string, start: string, end: string) => {
     const [sh, sm] = start.split(":").map(Number);
     const [eh, em] = end.split(":").map(Number);
-    return ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+    const overrideStart = sh + (sm || 0) / 60;
+    const overrideEnd = eh + (em || 0) / 60;
+    // Za radne dane: merge s default 07-15 (prekovremeni = produženje)
+    const d = new Date(dateStr + "T00:00:00");
+    const day = getDay(d);
+    if (day !== 0 && day !== 6) {
+      const mergedStart = Math.min(7, overrideStart);
+      const mergedEnd = Math.max(15, overrideEnd);
+      return mergedEnd - mergedStart;
+    }
+    return overrideEnd - overrideStart;
   };
 
   // Sortiraj po datumu
@@ -136,16 +168,23 @@ export function OverrideModal({
             <div className="min-w-[130px]">
               <label className="text-[10px] text-gray-500 block mb-0.5">Datum</label>
               <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                type="text"
+                placeholder="dd.mm.yyyy"
+                value={dateDisplay}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDateDisplay(v);
+                  const iso = parseDateInput(v);
+                  setDate(iso ?? "");
+                }}
                 className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white"
               />
             </div>
             <div className="min-w-[70px]">
               <label className="text-[10px] text-gray-500 block mb-0.5">Od</label>
               <input
-                type="time"
+                type="text"
+                placeholder="HH:MM"
                 value={workStart}
                 onChange={(e) => setWorkStart(e.target.value)}
                 className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white"
@@ -154,7 +193,8 @@ export function OverrideModal({
             <div className="min-w-[70px]">
               <label className="text-[10px] text-gray-500 block mb-0.5">Do</label>
               <input
-                type="time"
+                type="text"
+                placeholder="HH:MM"
                 value={workEnd}
                 onChange={(e) => setWorkEnd(e.target.value)}
                 className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white"
@@ -208,7 +248,7 @@ export function OverrideModal({
                     <td className="py-1.5">{formatDate(o.date)}</td>
                     <td className="py-1.5">{o.work_start}</td>
                     <td className="py-1.5 font-medium">{o.work_end}</td>
-                    <td className="py-1.5">{calcHours(o.work_start, o.work_end)}h</td>
+                    <td className="py-1.5">{calcHours(o.date, o.work_start, o.work_end)}h</td>
                     <td className="py-1.5">{getTypeBadge(o.date)}</td>
                     <td className="py-1.5">
                       <button
