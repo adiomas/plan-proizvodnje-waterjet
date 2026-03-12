@@ -19,9 +19,10 @@ interface Props {
   orders: ScheduledOrder[];
   date: Date;
   overrides: MachineOverride[];
+  sirovineEnabled?: boolean;
 }
 
-export function DailyReport({ machine, machines, orders, date, overrides }: Props) {
+export function DailyReport({ machine, machines, orders, date, overrides, sirovineEnabled }: Props) {
   const targetMachines = machine ? [machine] : machines;
 
   return (
@@ -33,6 +34,7 @@ export function DailyReport({ machine, machines, orders, date, overrides }: Prop
           orders={orders}
           date={date}
           overrides={overrides}
+          sirovineEnabled={sirovineEnabled}
         />
       ))}
     </Document>
@@ -44,11 +46,13 @@ function DailyPage({
   orders,
   date,
   overrides,
+  sirovineEnabled,
 }: {
   machine: Machine;
   orders: ScheduledOrder[];
   date: Date;
   overrides: MachineOverride[];
+  sirovineEnabled?: boolean;
 }) {
   const dayOrders = getOrdersForDate(orders, date, machine.id);
 
@@ -108,6 +112,7 @@ function DailyPage({
             <Text style={[s.th, { width: DAILY_COLS.pocetak, textAlign: "center" }]}>POČETAK</Text>
             <Text style={[s.th, { width: DAILY_COLS.kraj, textAlign: "center" }]}>KRAJ</Text>
             <Text style={[s.th, { width: DAILY_COLS.rok, textAlign: "center" }]}>ROK</Text>
+            {sirovineEnabled && <Text style={[s.th, { width: "6%", textAlign: "center" }]}>SIR.</Text>}
             <Text style={[s.th, { width: DAILY_COLS.status, textAlign: "center" }]}>STATUS</Text>
             <Text style={[s.th, { width: DAILY_COLS.stanje, textAlign: "center" }]}>STANJE</Text>
           </View>
@@ -146,6 +151,11 @@ function DailyPage({
                     ? formatRokShort(seg.order.order.rok_isporuke)
                     : "—"}
                 </Text>
+                {sirovineEnabled && (
+                  <Text style={[s.td, { width: "6%", textAlign: "center" }]}>
+                    {seg.order.order.status_sirovine === "IMA" ? "IMA" : seg.order.order.status_sirovine === "NEMA" ? "NEMA" : seg.order.order.status_sirovine === "CEKA" ? "ČEKA" : "?"}
+                  </Text>
+                )}
                 <Text style={[s.td, { width: DAILY_COLS.status, textAlign: "center" }]}>
                   {seg.order.status}
                 </Text>

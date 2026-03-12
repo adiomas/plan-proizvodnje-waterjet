@@ -12,10 +12,11 @@ export async function downloadDailyPDF(
   machines: Machine[],
   orders: ScheduledOrder[],
   date: Date,
-  overrides: MachineOverride[] = []
+  overrides: MachineOverride[] = [],
+  sirovineEnabled = false
 ): Promise<void> {
   const blob = await pdf(
-    <DailyReport machine={machine} machines={machines} orders={orders} date={date} overrides={overrides} />
+    <DailyReport machine={machine} machines={machines} orders={orders} date={date} overrides={overrides} sirovineEnabled={sirovineEnabled} />
   ).toBlob();
   const machineName = machine ? machine.name : "Svi-strojevi";
   const dateStr = formatDate(date).replace(/\./g, "-").slice(0, -1);
@@ -28,10 +29,11 @@ export async function downloadWeeklyPDF(
   machines: Machine[],
   orders: ScheduledOrder[],
   weekStart: Date,
-  overrides: MachineOverride[] = []
+  overrides: MachineOverride[] = [],
+  sirovineEnabled = false
 ): Promise<void> {
   const blob = await pdf(
-    <WeeklyReport machine={machine} machines={machines} orders={orders} weekStart={weekStart} overrides={overrides} />
+    <WeeklyReport machine={machine} machines={machines} orders={orders} weekStart={weekStart} overrides={overrides} sirovineEnabled={sirovineEnabled} />
   ).toBlob();
   const machineName = machine ? machine.name : "Svi-strojevi";
   const weekStr = `T${weekNumber(weekStart)}`;

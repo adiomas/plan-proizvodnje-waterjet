@@ -137,6 +137,21 @@ export function useWorkOrders() {
     }
   };
 
+  const updateSirovine = async (id: string, newStatus: "IMA" | "NEMA" | null) => {
+    const { error } = await supabase.rpc("update_status_sirovine", {
+      order_id: id,
+      new_status: newStatus,
+    });
+
+    if (error) {
+      console.error("Greška pri ažuriranju sirovine:", error);
+      return;
+    }
+    setOrders((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, status_sirovine: newStatus } : o))
+    );
+  };
+
   return {
     orders,
     loading,
@@ -144,6 +159,7 @@ export function useWorkOrders() {
     updateOrder,
     deleteOrder,
     reorderOrders,
+    updateSirovine,
     refetch: fetchOrders,
   };
 }

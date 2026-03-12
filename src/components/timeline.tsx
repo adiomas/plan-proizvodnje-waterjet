@@ -22,6 +22,7 @@ interface TimelineProps {
   onMoveOrder?: (orderId: string, targetDate: string) => void;
   onUnpinOrder?: (orderId: string) => void;
   overrides?: MachineOverride[];
+  sirovineEnabled?: boolean;
 }
 
 type ZoomLevel = "day" | "week" | "month";
@@ -58,6 +59,7 @@ export function Timeline({
   onMoveOrder,
   onUnpinOrder,
   overrides = [],
+  sirovineEnabled = false,
 }: TimelineProps) {
   const [zoom, setZoom] = useState<ZoomLevel>("day");
   const [tooltip, setTooltip] = useState<{
@@ -674,6 +676,7 @@ export function Timeline({
                   const somethingHovered = hoveredOrderId != null;
                   const isBeingDragged = dragState?.orderId === s.order.id && dragState.isDragging;
                   const isPinned = s.order.najraniji_pocetak !== null;
+                  const isCeka = sirovineEnabled && s.order.status_sirovine === "CEKA";
                   const draggable = canDrag(s);
 
                   const baseOpacity =
@@ -791,6 +794,7 @@ export function Timeline({
                                 </button>
                               )}
                               {isPinned && !onUnpinOrder && "⏳ "}
+                              {isCeka && "⏳ "}
                               {totalRight - totalLeft > 40 ? s.order.rn_id : ""}
                             </span>
                           )}
@@ -834,6 +838,11 @@ export function Timeline({
             </div>
           )}
           <div>Trajanje: {tooltip.order.order.trajanje_h}h</div>
+          {sirovineEnabled && tooltip.order.order.status_sirovine && (
+            <div className="text-gray-300">
+              Sirovina: {tooltip.order.order.status_sirovine === "IMA" ? "IMA" : tooltip.order.order.status_sirovine === "NEMA" ? "NEMA" : "ČEKA"}
+            </div>
+          )}
           {tooltip.order.status !== "OK" && (
             <div className="text-red-300 font-bold">
               {tooltip.order.status}

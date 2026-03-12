@@ -20,9 +20,10 @@ interface Props {
   orders: ScheduledOrder[];
   weekStart: Date; // ponedjeljak
   overrides: MachineOverride[];
+  sirovineEnabled?: boolean;
 }
 
-export function WeeklyReport({ machine, machines, orders, weekStart, overrides }: Props) {
+export function WeeklyReport({ machine, machines, orders, weekStart, overrides, sirovineEnabled }: Props) {
   const targetMachines = machine ? [machine] : machines;
 
   return (
@@ -34,6 +35,7 @@ export function WeeklyReport({ machine, machines, orders, weekStart, overrides }
           orders={orders}
           weekStart={weekStart}
           overrides={overrides}
+          sirovineEnabled={sirovineEnabled}
         />
       ))}
     </Document>
@@ -45,11 +47,13 @@ function WeeklyPage({
   orders,
   weekStart,
   overrides,
+  sirovineEnabled,
 }: {
   machine: Machine;
   orders: ScheduledOrder[];
   weekStart: Date;
   overrides: MachineOverride[];
+  sirovineEnabled?: boolean;
 }) {
   const weekEnd = addDays(weekStart, 4); // petak
   const daySegments = getWeekSegments(orders, weekStart, machine.id, overrides);
@@ -109,6 +113,7 @@ function WeeklyPage({
                 key={dateKey}
                 date={dayDate}
                 segments={segments}
+                sirovineEnabled={sirovineEnabled}
               />
             );
           })}
@@ -130,9 +135,11 @@ function WeeklyPage({
 function DaySection({
   date,
   segments,
+  sirovineEnabled,
 }: {
   date: Date;
   segments: DaySegment[];
+  sirovineEnabled?: boolean;
 }) {
   return (
     <View wrap={false}>
@@ -158,6 +165,7 @@ function DaySection({
             <Text style={[s.th, { width: WEEKLY_COLS.trajanje, textAlign: "center" }]}>TRAJ.</Text>
             <Text style={[s.th, { width: WEEKLY_COLS.vrijeme, textAlign: "center" }]}>VRIJEME</Text>
             <Text style={[s.th, { width: WEEKLY_COLS.rok, textAlign: "center" }]}>ROK</Text>
+            {sirovineEnabled && <Text style={[s.th, { width: "7%", textAlign: "center" }]}>SIR.</Text>}
             <Text style={[s.th, { width: WEEKLY_COLS.stanje, textAlign: "center" }]}>STANJE</Text>
           </View>
 
@@ -190,6 +198,11 @@ function DaySection({
                     ? formatRokShort(seg.order.order.rok_isporuke)
                     : "—"}
                 </Text>
+                {sirovineEnabled && (
+                  <Text style={[s.td, { width: "7%", textAlign: "center" }]}>
+                    {seg.order.order.status_sirovine === "IMA" ? "IMA" : seg.order.order.status_sirovine === "NEMA" ? "NEMA" : seg.order.order.status_sirovine === "CEKA" ? "ČEKA" : "?"}
+                  </Text>
+                )}
                 <Text style={[
                   seg.order.stanje === "BEZ ROKA" ? s.tdMuted : cellStyle,
                   { width: WEEKLY_COLS.stanje, textAlign: "center" }

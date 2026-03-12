@@ -35,15 +35,29 @@ export function computeSchedule(
   orders: WorkOrder[],
   machines: Machine[],
   ganttStartDate: Date,
-  overrides: MachineOverride[] = []
+  overrides: MachineOverride[] = [],
+  sirovineEnabled = false
 ): ScheduleResult {
   const sorted = [...orders].sort((a, b) => a.sort_order - b.sort_order);
 
   // Razdvoji na ručne i automatske naloge
   const manualOrders: WorkOrder[] = [];
   const autoOrders: WorkOrder[] = [];
+  const scheduled: ScheduledOrder[] = [];
 
   for (const order of sorted) {
+    // Kad je feature uključen — filtriraj po statusu sirovine
+    if (sirovineEnabled) {
+      if (order.status_sirovine === null) {
+        scheduled.push(makeResult(order, null, null, "NEPROVJERENO"));
+        continue;
+      }
+      if (order.status_sirovine === "NEMA") {
+        scheduled.push(makeResult(order, null, null, "NEMA SIROVINE"));
+        continue;
+      }
+    }
+
     const hasRedoslijed = order.zeljeni_redoslijed !== null;
     // "Ne prije" nalozi (samo najraniji_pocetak, bez redoslijeda) idu u auto pool
     if (hasRedoslijed) {
@@ -60,13 +74,12 @@ export function computeSchedule(
     return a.sort_order - b.sort_order;
   });
 
-  const scheduled: ScheduledOrder[] = [];
   for (const order of manualOrders) {
-    const result = scheduleManualOrder(order, scheduled, ganttStartDate, overrides);
+    const result = scheduleManualOrder(order, scheduled, ganttStartDate, overrides, sirovineEnabled);
     scheduled.push(result);
   }
 
-  scheduleAutoOrders(autoOrders, scheduled, machines, ganttStartDate, overrides);
+  scheduleAutoOrders(autoOrders, scheduled, machines, ganttStartDate, overrides, sirovineEnabled);
 
   for (const item of scheduled) {
     if (item.start && item.end && item.order.machine_id) {
@@ -160,7 +173,8 @@ function scheduleAutoOrders(
   scheduled: ScheduledOrder[],
   machines: Machine[],
   ganttStartDate: Date,
-  overrides: MachineOverride[]
+  overrides: MachineOverride[],
+  sirovineEnabled = false
 ): void {
   // EDD: sortiraj po roku (najhitniji prvo), null rok ide na kraj
   const sorted = [...autoOrders].sort((a, b) => {
@@ -212,8 +226,9 @@ function scheduleAutoOrders(
     );
     const end = calculateEnd(start, order.trajanje_h, order.machine_id, overrides);
     const stanje = calculateDeadline(order, end);
+    const baseStatus: ScheduleStatus = sirovineEnabled && order.status_sirovine === "CEKA" ? "ČEKANJE SIROVINE" : "OK";
 
-    scheduled.push(makeResult(order, start, end, "OK", stanje));
+    scheduled.push(makeResult(order, start, end, baseStatus, stanje));
     occupied.push({ start, end });
   }
 }
@@ -246,7 +261,8 @@ function scheduleManualOrder(
   order: WorkOrder,
   previouslyScheduled: ScheduledOrder[],
   ganttStartDate: Date,
-  overrides: MachineOverride[]
+  overrides: MachineOverride[],
+  sirovineEnabled = false
 ): ScheduledOrder {
   const hasRedoslijed = order.zeljeni_redoslijed !== null;
   const hasPocetak = order.najraniji_pocetak !== null;
@@ -300,8 +316,9 @@ function scheduleManualOrder(
 
   const end = calculateEnd(start, order.trajanje_h, order.machine_id, overrides);
   const stanje = calculateDeadline(order, end);
+  const baseStatus: ScheduleStatus = sirovineEnabled && order.status_sirovine === "CEKA" ? "ČEKANJE SIROVINE" : "OK";
 
-  return makeResult(order, start, end, "OK", stanje);
+  return makeResult(order, start, end, baseStatus, stanje);
 }
 
 /** Izračunaj end datetime s multi-day overflow respektujući dinamičko radno vrijeme */

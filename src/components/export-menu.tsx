@@ -14,11 +14,12 @@ interface Props {
   machines: Machine[];
   scheduled: ScheduledOrder[];
   overrides?: MachineOverride[];
+  sirovineEnabled?: boolean;
 }
 
 type ReportType = "daily" | "weekly";
 
-export function ExportMenu({ machines, scheduled, overrides = [] }: Props) {
+export function ExportMenu({ machines, scheduled, overrides = [], sirovineEnabled = false }: Props) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<ReportType>("daily");
   const [machineId, setMachineId] = useState<string>("all");
@@ -58,10 +59,10 @@ export function ExportMenu({ machines, scheduled, overrides = [] }: Props) {
       const targetDate = startOfDay(new Date(date + "T00:00:00"));
 
       if (type === "daily") {
-        await downloadDailyPDF(machine, machines, scheduled, targetDate, overrides);
+        await downloadDailyPDF(machine, machines, scheduled, targetDate, overrides, sirovineEnabled);
       } else {
         const monday = getMonday(targetDate);
-        await downloadWeeklyPDF(machine, machines, scheduled, monday, overrides);
+        await downloadWeeklyPDF(machine, machines, scheduled, monday, overrides, sirovineEnabled);
       }
     } catch (err) {
       console.error("PDF export failed:", err);

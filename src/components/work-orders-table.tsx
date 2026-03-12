@@ -11,7 +11,7 @@ import {
   type VisibilityState,
   type OnChangeFn,
 } from "@tanstack/react-table";
-import type { Machine, WorkOrder, ScheduledOrder } from "@/lib/types";
+import type { Machine, WorkOrder, ScheduledOrder, StatusSirovine, UserRole } from "@/lib/types";
 import { formatDayDate, formatTime } from "@/lib/utils";
 import { DateInput } from "@/components/ui/date-input";
 
@@ -25,6 +25,11 @@ interface WorkOrdersViewProps {
   onHoverOrder?: (id: string | null) => void;
   columnVisibility?: VisibilityState;
   onColumnVisibilityChange?: OnChangeFn<VisibilityState>;
+  canEdit?: (field?: string) => boolean;
+  canDelete?: () => boolean;
+  canReorder?: () => boolean;
+  sirovineEnabled?: boolean;
+  role?: UserRole;
 }
 
 /* Exported column metadata for external ColumnToggle rendering */
@@ -33,6 +38,7 @@ export const TOGGLEABLE_COLUMNS = [
   { id: "opis", header: "Opis" },
   { id: "napomena", header: "Napomena" },
   { id: "rok_isporuke", header: "Rok" },
+  { id: "status_sirovine", header: "Sirovine" },
   { id: "machine_id", header: "Stroj" },
   { id: "trajanje_h", header: "Trajanje (h)" },
   { id: "zeljeni_redoslijed", header: "Redoslijed" },
@@ -47,6 +53,7 @@ export const TOGGLEABLE_COLUMNS = [
 export const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
   napomena: false,
   najraniji_pocetak: false,
+  status_sirovine: false,
 };
 
 /* ================================================================
@@ -89,11 +96,47 @@ function StatusBadge({ status }: { status: string }) {
       ? "bg-amber-50 text-amber-600"
       : status === "NEMA RASPOREDA"
       ? "bg-gray-100 text-gray-500"
+      : status === "NEPROVJERENO"
+      ? "bg-yellow-50 text-yellow-600"
+      : status === "NEMA SIROVINE"
+      ? "bg-red-50 text-red-600"
+      : status === "ČEKANJE SIROVINE"
+      ? "bg-amber-50 text-amber-600"
       : "bg-gray-100 text-gray-500";
   return (
     <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${style}`}>
       {status}
     </span>
+  );
+}
+
+function SirovinaBadge({
+  status,
+  onClick,
+}: {
+  status: StatusSirovine;
+  onClick?: () => void;
+}) {
+  const config =
+    status === "IMA"
+      ? { label: "\u2713", className: "bg-emerald-50 text-emerald-600 border-emerald-200" }
+      : status === "NEMA"
+      ? { label: "\u2715", className: "bg-red-50 text-red-600 border-red-200" }
+      : status === "CEKA"
+      ? { label: "\u23F3", className: "bg-amber-50 text-amber-600 border-amber-200" }
+      : { label: "?", className: "bg-yellow-50 text-yellow-500 border-yellow-200 border-dashed" };
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={!onClick}
+      className={`text-[11px] font-medium w-7 h-6 rounded border inline-flex items-center justify-center transition-colors ${config.className} ${
+        onClick ? "cursor-pointer hover:opacity-80" : "cursor-default"
+      }`}
+      title={status === "IMA" ? "Ima sirovinu" : status === "NEMA" ? "Nema sirovinu" : status === "CEKA" ? "Čeka sirovinu" : "Neprovjereno"}
+    >
+      {config.label}
+    </button>
   );
 }
 
@@ -123,20 +166,31 @@ function OrderCard({
   sched,
   onUpdate,
   onDelete,
+  canEdit,
+  canDelete,
+  sirovineEnabled,
+  role,
 }: {
   order: WorkOrder;
   machine: Machine | undefined;
   sched: ScheduledOrder | undefined;
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  canEdit?: (field?: string) => boolean;
+  canDelete?: () => boolean;
+  sirovineEnabled?: boolean;
+  role?: UserRole;
 }) {
   const isOverlap = sched?.status === "PREKLAPANJE";
   const isLate = sched?.stanje === "KASNI";
   const isCritical = sched?.stanje === "KRITIČNO";
   const isDone = order.izvedba === "ZAVRŠEN";
+  const isSirovineNema = sirovineEnabled && order.status_sirovine === "NEMA";
+  const isSirovineNull = sirovineEnabled && order.status_sirovine === null;
 
   const cycleIzvedba = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!canEdit?.("izvedba")) return;
     const next =
       order.izvedba === "PLANIRAN"
         ? "U TIJEKU"
@@ -146,10 +200,28 @@ function OrderCard({
     onUpdate(order.id, { izvedba: next });
   };
 
+  const cycleSirovine = () => {
+    if (!canEdit?.("status_sirovine")) return;
+    if (role === "material") {
+      const next: StatusSirovine = order.status_sirovine === "IMA" ? "NEMA" : "IMA";
+      onUpdate(order.id, { status_sirovine: next });
+    } else {
+      // admin: null → IMA → NEMA → CEKA → null
+      const cycle: StatusSirovine[] = [null, "IMA", "NEMA", "CEKA"];
+      const idx = cycle.indexOf(order.status_sirovine);
+      const next = cycle[(idx + 1) % cycle.length];
+      onUpdate(order.id, { status_sirovine: next });
+    }
+  };
+
   return (
     <div
       className={`mx-3 mb-2 rounded-lg border overflow-hidden transition-all ${
-        isOverlap
+        isSirovineNema
+          ? "border-red-200 bg-red-50/40"
+          : isSirovineNull
+          ? "border-yellow-200 bg-yellow-50/30"
+          : isOverlap
           ? "border-red-200 bg-red-50/40"
           : isLate
           ? "border-amber-200 bg-amber-50/30"
@@ -199,30 +271,39 @@ function OrderCard({
             )}
           </div>
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            {sirovineEnabled && (
+              <SirovinaBadge
+                status={order.status_sirovine}
+                onClick={canEdit?.("status_sirovine") ? cycleSirovine : undefined}
+              />
+            )}
             {sched && <StatusBadge status={sched.status} />}
             {sched?.stanje && <StanjeBadge stanje={sched.stanje} />}
             <div className="flex-1" />
             <button
               onClick={cycleIzvedba}
+              disabled={!canEdit?.("izvedba")}
               className={`text-[10px] font-medium px-2.5 py-1 rounded border active:scale-95 transition-transform ${
                 order.izvedba === "PLANIRAN"
                   ? "bg-white border-gray-200 text-gray-500"
                   : order.izvedba === "U TIJEKU"
                   ? "bg-gray-900 border-gray-900 text-white"
                   : "bg-gray-100 border-gray-200 text-gray-400"
-              }`}
+              } ${!canEdit?.("izvedba") ? "opacity-50" : ""}`}
             >
               {order.izvedba}
             </button>
-            <button
-              onClick={() => onDelete(order.id)}
-              className="text-gray-200 active:text-red-500 p-1 -mr-1"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-            </button>
+            {canDelete?.() !== false && (
+              <button
+                onClick={() => onDelete(order.id)}
+                className="text-gray-200 active:text-red-500 p-1 -mr-1"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -240,12 +321,14 @@ function EditableCell({
   onSave,
   type = "text",
   options,
+  disabled = false,
 }: {
   value: string;
   displayValue?: string;
   onSave: (v: string) => void;
   type?: "text" | "number" | "date" | "select";
   options?: { value: string; label: string }[];
+  disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -339,6 +422,14 @@ function EditableCell({
         className="w-full bg-white border border-gray-300 rounded px-1 py-0.5 text-xs focus:outline-none focus:border-gray-400"
         step={type === "number" ? "0.5" : undefined}
       />
+    );
+  }
+
+  if (disabled) {
+    return (
+      <span className="px-1 py-0.5 block truncate min-h-[1.2em] text-gray-500">
+        {displayValue ?? (value || "—")}
+      </span>
     );
   }
 
@@ -455,6 +546,10 @@ function DesktopTable({
   onHoverOrder,
   columnVisibility,
   onColumnVisibilityChange,
+  canEdit,
+  canDelete,
+  sirovineEnabled,
+  role,
 }: {
   orders: WorkOrder[];
   machines: Machine[];
@@ -466,6 +561,10 @@ function DesktopTable({
   onHoverOrder?: (id: string | null) => void;
   columnVisibility: VisibilityState;
   onColumnVisibilityChange: OnChangeFn<VisibilityState>;
+  canEdit?: (field?: string) => boolean;
+  canDelete?: () => boolean;
+  sirovineEnabled?: boolean;
+  role?: UserRole;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
@@ -497,6 +596,7 @@ function DesktopTable({
           <EditableCell
             value={row.original.rn_id}
             onSave={(v) => handleFieldUpdate(row.original.id, "rn_id", v)}
+            disabled={!canEdit?.("rn_id")}
           />
         ),
       },
@@ -509,6 +609,7 @@ function DesktopTable({
           <EditableCell
             value={row.original.opis ?? ""}
             onSave={(v) => handleFieldUpdate(row.original.id, "opis", v)}
+            disabled={!canEdit?.("opis")}
           />
         ),
       },
@@ -521,6 +622,7 @@ function DesktopTable({
           <EditableCell
             value={row.original.napomena ?? ""}
             onSave={(v) => handleFieldUpdate(row.original.id, "napomena", v)}
+            disabled={!canEdit?.("napomena")}
           />
         ),
       },
@@ -541,8 +643,35 @@ function DesktopTable({
               handleFieldUpdate(row.original.id, "rok_isporuke", v)
             }
             type="date"
+            disabled={!canEdit?.("rok_isporuke")}
           />
         ),
+      },
+      {
+        accessorKey: "status_sirovine",
+        header: "Sirovine",
+        size: 80,
+        enableSorting: true,
+        cell: ({ row }) => {
+          const cycleSirovine = () => {
+            if (!canEdit?.("status_sirovine")) return;
+            if (role === "material") {
+              const next: StatusSirovine = row.original.status_sirovine === "IMA" ? "NEMA" : "IMA";
+              onUpdate(row.original.id, { status_sirovine: next });
+            } else {
+              const cycle: StatusSirovine[] = [null, "IMA", "NEMA", "CEKA"];
+              const idx = cycle.indexOf(row.original.status_sirovine);
+              const next = cycle[(idx + 1) % cycle.length];
+              onUpdate(row.original.id, { status_sirovine: next });
+            }
+          };
+          return (
+            <SirovinaBadge
+              status={row.original.status_sirovine}
+              onClick={canEdit?.("status_sirovine") ? cycleSirovine : undefined}
+            />
+          );
+        },
       },
       {
         accessorKey: "machine_id",
@@ -565,6 +694,7 @@ function DesktopTable({
               }
               type="select"
               options={machines.map((m) => ({ value: m.id, label: m.name }))}
+              disabled={!canEdit?.("machine_id")}
             />
           );
         },
@@ -581,6 +711,7 @@ function DesktopTable({
               handleFieldUpdate(row.original.id, "trajanje_h", v)
             }
             type="number"
+            disabled={!canEdit?.("trajanje_h")}
           />
         ),
       },
@@ -596,6 +727,7 @@ function DesktopTable({
               handleFieldUpdate(row.original.id, "zeljeni_redoslijed", v)
             }
             type="number"
+            disabled={!canEdit?.("zeljeni_redoslijed")}
           />
         ),
       },
@@ -606,6 +738,7 @@ function DesktopTable({
         enableSorting: true,
         cell: ({ row }) => {
           const val = row.original.najraniji_pocetak;
+          const isDisabled = !canEdit?.("najraniji_pocetak");
           if (!val) {
             return (
               <EditableCell
@@ -614,6 +747,7 @@ function DesktopTable({
                   handleFieldUpdate(row.original.id, "najraniji_pocetak", v)
                 }
                 type="date"
+                disabled={isDisabled}
               />
             );
           }
@@ -626,14 +760,17 @@ function DesktopTable({
                   handleFieldUpdate(row.original.id, "najraniji_pocetak", v)
                 }
                 type="date"
+                disabled={isDisabled}
               />
-              <button
-                onClick={() => onUpdate(row.original.id, { najraniji_pocetak: null })}
-                className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0"
-                title="Otkači"
-              >
-                ✕
-              </button>
+              {!isDisabled && (
+                <button
+                  onClick={() => onUpdate(row.original.id, { najraniji_pocetak: null })}
+                  className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0"
+                  title="Otkači"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           );
         },
@@ -705,15 +842,16 @@ function DesktopTable({
               { value: "U TIJEKU", label: "U TIJEKU" },
               { value: "ZAVRŠEN", label: "ZAVRŠEN" },
             ]}
+            disabled={!canEdit?.("izvedba")}
           />
         ),
       },
-      {
+      ...(canDelete?.() !== false ? [{
         id: "actions",
         header: "",
         size: 30,
         enableSorting: false,
-        cell: ({ row }) => (
+        cell: ({ row }: { row: { original: WorkOrder } }) => (
           <button
             onClick={() => onDelete(row.original.id)}
             className="text-[#d0d5dd] hover:text-red-500 text-xs transition-colors"
@@ -722,9 +860,9 @@ function DesktopTable({
             &#x2715;
           </button>
         ),
-      },
+      }] : []),
     ],
-    [machineMap, machines, scheduleMap, handleFieldUpdate, onDelete]
+    [machineMap, machines, scheduleMap, handleFieldUpdate, onDelete, canEdit, canDelete, sirovineEnabled, role, onUpdate]
   );
 
   const table = useReactTable({
@@ -780,9 +918,15 @@ function DesktopTable({
               const isOverlap = s?.status === "PREKLAPANJE";
               const isHovered = hoveredOrderId === row.original.id;
               const zebraClass = rowIndex % 2 === 0 ? "bg-white" : "bg-[#f9fafb]";
+              const isSirovineNema = sirovineEnabled && row.original.status_sirovine === "NEMA";
+              const isSirovineNull = sirovineEnabled && row.original.status_sirovine === null;
 
               const rowBg = isHovered
                 ? "bg-blue-50 ring-2 ring-blue-400 ring-inset"
+                : isSirovineNema
+                ? "bg-red-50/40"
+                : isSirovineNull
+                ? "bg-yellow-50/30"
                 : isOverlap
                 ? "bg-red-50/50"
                 : zebraClass;
@@ -831,6 +975,11 @@ export function WorkOrdersView({
   onHoverOrder,
   columnVisibility,
   onColumnVisibilityChange,
+  canEdit,
+  canDelete,
+  canReorder,
+  sirovineEnabled,
+  role,
 }: WorkOrdersViewProps) {
   const machineMap = useMemo(() => {
     const m = new Map<string, Machine>();
@@ -843,6 +992,15 @@ export function WorkOrdersView({
     for (const s of scheduled) m.set(s.order.id, s);
     return m;
   }, [scheduled]);
+
+  // Kad sirovineEnabled je uključen, prikaži status_sirovine kolonu
+  const effectiveVisibility = useMemo(() => {
+    const base = columnVisibility ?? DEFAULT_COLUMN_VISIBILITY;
+    if (sirovineEnabled) {
+      return { ...base, status_sirovine: base.status_sirovine ?? true };
+    }
+    return { ...base, status_sirovine: false };
+  }, [columnVisibility, sirovineEnabled]);
 
   return (
     <>
@@ -859,6 +1017,10 @@ export function WorkOrdersView({
               sched={scheduleMap.get(order.id)}
               onUpdate={onUpdate}
               onDelete={onDelete}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              sirovineEnabled={sirovineEnabled}
+              role={role}
             />
           ))
         )}
@@ -876,8 +1038,12 @@ export function WorkOrdersView({
           onDelete={onDelete}
           hoveredOrderId={hoveredOrderId}
           onHoverOrder={onHoverOrder}
-          columnVisibility={columnVisibility ?? DEFAULT_COLUMN_VISIBILITY}
+          columnVisibility={effectiveVisibility}
           onColumnVisibilityChange={onColumnVisibilityChange ?? (() => {})}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          sirovineEnabled={sirovineEnabled}
+          role={role}
         />
       </div>
     </>

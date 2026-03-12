@@ -8,6 +8,8 @@ export interface Machine {
   created_at: string;
 }
 
+export type StatusSirovine = "IMA" | "NEMA" | "CEKA" | null;
+
 export interface WorkOrder {
   id: string;
   user_id: string;
@@ -20,6 +22,7 @@ export interface WorkOrder {
   zeljeni_redoslijed: number | null;
   najraniji_pocetak: string | null;
   izvedba: "PLANIRAN" | "U TIJEKU" | "ZAVRŠEN";
+  status_sirovine: StatusSirovine;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -29,7 +32,10 @@ export type ScheduleStatus =
   | "OK"
   | "GREŠKA UNOSA"
   | "NEMA RASPOREDA"
-  | "PREKLAPANJE";
+  | "PREKLAPANJE"
+  | "NEPROVJERENO"
+  | "NEMA SIROVINE"
+  | "ČEKANJE SIROVINE";
 
 export type DeadlineStatus = "KASNI" | "KRITIČNO" | "NA VRIJEME" | "BEZ ROKA" | null;
 
@@ -59,6 +65,14 @@ export interface MachineOverride {
   date: string;       // ISO date "2026-03-21"
   work_start: string; // "07:00"
   work_end: string;   // "19:00"
+  created_at: string;
+}
+
+export type UserRole = "admin" | "material" | "viewer";
+
+export interface UserProfile {
+  id: string;
+  role: UserRole;
   created_at: string;
 }
 

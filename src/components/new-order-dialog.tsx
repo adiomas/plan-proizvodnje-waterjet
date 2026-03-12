@@ -20,7 +20,7 @@ export function NewOrderSheet({
   const [rnId, setRnId] = useState("");
   const [opis, setOpis] = useState("");
   const [napomena, setNapomena] = useState("");
-  const [machineId, setMachineId] = useState(machines[0]?.id ?? "");
+  const [machineId, setMachineId] = useState("");
   const [trajanjeH, setTrajanjeH] = useState("1");
   const [rokIsporuke, setRokIsporuke] = useState("");
   const [rokDisplay, setRokDisplay] = useState("");
@@ -33,6 +33,7 @@ export function NewOrderSheet({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!machineId) return;
     setSaving(true);
 
     const order: NewWorkOrder = {
@@ -45,6 +46,7 @@ export function NewOrderSheet({
       zeljeni_redoslijed: redoslijed ? parseInt(redoslijed) : null,
       najraniji_pocetak: najraniji || null,
       izvedba: "PLANIRAN",
+      status_sirovine: null,
       sort_order: 0,
     };
 
@@ -80,7 +82,8 @@ export function NewOrderSheet({
           </div>
           <div>
             <label className={labelClass}>Stroj <span className="text-red-400">*</span></label>
-            <select value={machineId} onChange={(e) => setMachineId(e.target.value)} required className={ic}>
+            <select value={machineId} onChange={(e) => setMachineId(e.target.value)} required className={`${ic} ${!machineId ? "text-gray-400" : ""}`}>
+              <option value="" disabled>Odaberi stroj...</option>
               {machines.map((m) => (<option key={m.id} value={m.id}>{m.name}</option>))}
             </select>
           </div>
