@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { addDays, startOfDay, getDay, format } from "date-fns";
+import { addDays, startOfDay, getDay, format, differenceInCalendarDays } from "date-fns";
 import type { Machine, ScheduledOrder } from "@/lib/types";
 import {
   formatDayDate,
@@ -63,11 +63,6 @@ export function Timeline({
   const totalWidth = TOTAL_DAYS * dayWidth;
   const hourWidth = dayWidth / WORK_HOURS;
 
-  const ganttStartMs = useMemo(
-    () => startOfDay(ganttStartDate).getTime(),
-    [ganttStartDate]
-  );
-  const msPerDay = 1000 * 60 * 60 * 24;
 
   // Generiraj dane
   const days = useMemo(() => {
@@ -80,9 +75,7 @@ export function Timeline({
 
   // Trenutno vrijeme — clamp na radne sate (07:00 - 15:00)
   const now = new Date();
-  const todayDayIdx = Math.floor(
-    (startOfDay(now).getTime() - ganttStartMs) / msPerDay
-  );
+  const todayDayIdx = differenceInCalendarDays(startOfDay(now), ganttStartDate);
 
   let nowOffset: number | null = null;
   if (todayDayIdx >= 0 && todayDayIdx < TOTAL_DAYS) {
@@ -159,9 +152,7 @@ export function Timeline({
       if (!canDrag(s) || !onMoveOrder) return;
       if (!s.start) return;
 
-      const dayIdx = Math.floor(
-        (startOfDay(s.start).getTime() - ganttStartMs) / msPerDay
-      );
+      const dayIdx = differenceInCalendarDays(startOfDay(s.start!), ganttStartDate);
 
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       setDragState({
@@ -172,7 +163,7 @@ export function Timeline({
       });
       setDragDeltaPx(0);
     },
-    [ganttStartMs, msPerDay, onMoveOrder]
+    [ganttStartDate, onMoveOrder]
   );
 
   const handlePointerMove = useCallback(
@@ -212,12 +203,8 @@ export function Timeline({
 
     const segments: BarSegment[] = [];
 
-    const startDayIdx = Math.floor(
-      (startOfDay(s.start).getTime() - ganttStartMs) / msPerDay
-    );
-    const endDayIdx = Math.floor(
-      (startOfDay(s.end).getTime() - ganttStartMs) / msPerDay
-    );
+    const startDayIdx = differenceInCalendarDays(startOfDay(s.start), ganttStartDate);
+    const endDayIdx = differenceInCalendarDays(startOfDay(s.end), ganttStartDate);
 
     for (let dayIdx = startDayIdx; dayIdx <= endDayIdx; dayIdx++) {
       if (dayIdx < 0 || dayIdx >= TOTAL_DAYS) continue;

@@ -14,6 +14,7 @@ import { MachineDialog } from "@/components/machine-dialog";
 import { NewOrderSheet } from "@/components/new-order-dialog";
 import { StatusBar } from "@/components/status-bar";
 import { SchedulingInfoModal } from "@/components/scheduling-info-modal";
+import { ExportMenu } from "@/components/export-menu";
 
 type Tab = "nalozi" | "gant";
 
@@ -182,6 +183,10 @@ export default function DashboardPage() {
               {criticalCount} kritično
             </span>
           )}
+          {/* Export PDF */}
+          <div className="hidden lg:block">
+            <ExportMenu machines={machines} scheduled={scheduleResult.scheduled} />
+          </div>
           {/* Desktop: Novi nalog button */}
           <button
             onClick={() => setShowNewOrder(true)}
