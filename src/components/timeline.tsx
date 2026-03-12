@@ -5,6 +5,7 @@ import { addDays, startOfDay, getDay, format, differenceInCalendarDays } from "d
 import type { Machine, ScheduledOrder, MachineOverride } from "@/lib/types";
 import {
   formatDayDate,
+  formatDayShort,
   formatTime,
   WORKDAY_START,
   WORKDAY_END,
@@ -436,7 +437,7 @@ export function Timeline({
                       }`}
                       style={{ width: dp.width }}
                     >
-                      {formatDayDate(day)}{hasOv ? " ⚡" : ""}
+                      {formatDayShort(day)}{hasOv ? " ⚡" : ""}
                     </div>
                   );
                 })}
@@ -492,7 +493,7 @@ export function Timeline({
                       }`}
                       style={{ width: dayWidth }}
                     >
-                      {formatDayDate(day)}
+                      {formatDayShort(day)}
                     </div>
                   );
                 })}
@@ -725,7 +726,7 @@ export function Timeline({
                         >
                           {si === 0 && dragTargetDate && (
                             <span className="absolute -top-4 left-0 text-[8px] font-bold text-blue-600 bg-white px-1 rounded shadow-sm whitespace-nowrap z-30">
-                              {formatDayDate(new Date(dragTargetDate + "T00:00:00"))}
+                              {formatDayShort(new Date(dragTargetDate + "T00:00:00"))}
                             </span>
                           )}
                         </div>

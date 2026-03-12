@@ -62,8 +62,18 @@ export function workdayIntl(start: Date, days: number): Date {
   return d;
 }
 
-/** Formatiraj datum za prikaz: "pon 11.03." */
+/** Formatiraj datum za prikaz: "pon 11.03.2026." */
 export function formatDayDate(date: Date): string {
+  const days = ["ned", "pon", "uto", "sri", "čet", "pet", "sub"];
+  const dayName = days[getDay(date)];
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  return `${dayName} ${dd}.${mm}.${yyyy}.`;
+}
+
+/** Kratki format datuma za timeline header: "pon 11.03." */
+export function formatDayShort(date: Date): string {
   const days = ["ned", "pon", "uto", "sri", "čet", "pet", "sub"];
   const dayName = days[getDay(date)];
   const dd = String(date.getDate()).padStart(2, "0");

@@ -234,19 +234,7 @@ function adjustStartForEOD(
     return start;
   }
 
-  if (durationH <= wh.hours) {
-    // Nalog stane u jedan dan, ali ne danas — sljedeći radni dan
-    let next = addDays(startOfDay(start), 1);
-    for (let i = 0; i < 10; i++) {
-      const nextWh = getWorkingHours(machineId, next, overrides);
-      if (nextWh !== null) {
-        return setTime(next, nextWh.start);
-      }
-      next = addDays(next, 1);
-    }
-    return workdayStart(nextWorkday(start));
-  }
-
+  // Ne stane danas — pusti da calculateEnd splitta preko dana
   return start;
 }
 

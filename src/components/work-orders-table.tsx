@@ -485,6 +485,11 @@ function DesktopTable({
         cell: ({ row }) => (
           <EditableCell
             value={row.original.rok_isporuke ?? ""}
+            displayValue={
+              row.original.rok_isporuke
+                ? row.original.rok_isporuke.split("-").reverse().join(".")
+                : undefined
+            }
             onSave={(v) =>
               handleFieldUpdate(row.original.id, "rok_isporuke", v)
             }
@@ -569,6 +574,7 @@ function DesktopTable({
             <div className="flex items-center gap-1">
               <EditableCell
                 value={val}
+                displayValue={val.split("-").reverse().join(".")}
                 onSave={(v) =>
                   handleFieldUpdate(row.original.id, "najraniji_pocetak", v)
                 }
