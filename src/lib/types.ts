@@ -31,7 +31,7 @@ export type ScheduleStatus =
   | "NEMA RASPOREDA"
   | "PREKLAPANJE";
 
-export type DeadlineStatus = "KASNI" | "KRITIČNO" | "NA VRIJEME" | null;
+export type DeadlineStatus = "KASNI" | "KRITIČNO" | "NA VRIJEME" | "BEZ ROKA" | null;
 
 export interface ScheduledOrder {
   order: WorkOrder;

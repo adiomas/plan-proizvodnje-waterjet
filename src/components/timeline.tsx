@@ -26,6 +26,13 @@ interface TimelineProps {
 type ZoomLevel = "day" | "week" | "month";
 
 const TOTAL_DAYS = 183; // ~6 mjeseci
+
+const MONTH_NAMES_HR = [
+  "Siječanj", "Veljača", "Ožujak", "Travanj", "Svibanj", "Lipanj",
+  "Srpanj", "Kolovoz", "Rujan", "Listopad", "Studeni", "Prosinac",
+];
+
+const DAY_NAMES_SHORT = ["ned", "pon", "uto", "sri", "čet", "pet", "sub"];
 const WORK_HOURS = WORKDAY_END - WORKDAY_START; // 8 sati
 const MIN_DRAG_PX = 5;
 
@@ -78,21 +85,21 @@ export function Timeline({
     return maxH;
   }, [ganttStartDate, machines, overrides]);
 
-  // Kumulativne pozicije dana za day zoom
+  // Kumulativne pozicije dana za sve zoom nivoe (override dani su proporcionalno širi)
+  const pxPerHour = zoom === "day" ? 30 : zoom === "week" ? 15 : 4.5;
   const dayPositions = useMemo(() => {
-    if (zoom !== "day") return null;
     const positions: { left: number; width: number; hours: number }[] = [];
     let x = 0;
     for (let i = 0; i < TOTAL_DAYS; i++) {
       const maxH = getDayMaxHours(i);
-      const w = maxH * 30; // 30px po satu
+      const w = maxH * pxPerHour;
       positions.push({ left: x, width: w, hours: maxH });
       x += w;
     }
     return positions;
-  }, [zoom, getDayMaxHours]);
+  }, [pxPerHour, getDayMaxHours]);
 
-  const dynamicTotalWidth = zoom === "day" && dayPositions
+  const dynamicTotalWidth = dayPositions
     ? dayPositions[dayPositions.length - 1].left + dayPositions[dayPositions.length - 1].width
     : totalWidth;
 
@@ -113,6 +120,35 @@ export function Timeline({
     return result;
   }, [ganttStartDate]);
 
+  // Mjesečne grupe za gornji header red (tjedan/mjesec zoom)
+  const monthGroups = useMemo(() => {
+    if (zoom === "day") return null;
+    const groups: { label: string; left: number; width: number }[] = [];
+    let curMonth = -1, curYear = -1;
+    let groupLeft = 0, groupWidth = 0;
+
+    for (let i = 0; i < TOTAL_DAYS; i++) {
+      const d = days[i];
+      const m = d.getMonth(), y = d.getFullYear();
+      const w = dayPositions[i].width;
+
+      if (m !== curMonth || y !== curYear) {
+        if (curMonth !== -1) {
+          groups.push({ label: `${MONTH_NAMES_HR[curMonth]} ${curYear}`, left: groupLeft, width: groupWidth });
+        }
+        curMonth = m; curYear = y;
+        groupLeft = dayPositions[i].left;
+        groupWidth = w;
+      } else {
+        groupWidth += w;
+      }
+    }
+    if (curMonth !== -1) {
+      groups.push({ label: `${MONTH_NAMES_HR[curMonth]} ${curYear}`, left: groupLeft, width: groupWidth });
+    }
+    return groups;
+  }, [zoom, days, dayPositions]);
+
   // Trenutno vrijeme — clamp na radne sate (07:00 - 15:00)
   const now = new Date();
   const todayDayIdx = differenceInCalendarDays(startOfDay(now), ganttStartDate);
@@ -122,7 +158,7 @@ export function Timeline({
     const hour = now.getHours() + now.getMinutes() / 60;
     const clamped = Math.max(WORKDAY_START, Math.min(WORKDAY_END, hour));
 
-    if (zoom === "day" && dayPositions) {
+    if (dayPositions) {
       const dp = dayPositions[todayDayIdx];
       const frac = (clamped - WORKDAY_START) / dp.hours;
       nowOffset = dp.left + frac * dp.width;
@@ -142,7 +178,7 @@ export function Timeline({
   // Snap delta piksela na dane, preskoči vikende osim ako postoji override
   const snapDeltaToDays = useCallback(
     (deltaPx: number, originalDayIdx: number): number => {
-      const effectiveDayWidth = zoom === "day" && dayPositions
+      const effectiveDayWidth = dayPositions
         ? dayPositions[originalDayIdx]?.width ?? dayWidth
         : dayWidth;
       const rawDays = Math.round(deltaPx / effectiveDayWidth);
@@ -188,7 +224,7 @@ export function Timeline({
   const getDragSnappedOffsetPx = useCallback((): number => {
     if (!dragState || !dragState.isDragging) return 0;
     const snappedDelta = snapDeltaToDays(dragDeltaPx, dragState.originalDayIdx);
-    if (zoom === "day" && dayPositions) {
+    if (dayPositions) {
       // Sum widths of days from original to target
       let offset = 0;
       const start = dragState.originalDayIdx;
@@ -288,14 +324,14 @@ export function Timeline({
 
       if (endH <= startH) continue;
 
-      if (zoom === "day" && dayPositions) {
+      if (dayPositions) {
         const dp = dayPositions[dayIdx];
-        const pxPerHour = dp.width / dp.hours;
+        const dpPxPerHour = dp.width / dp.hours;
         const startFrac = startH - wh.start;
         const endFrac = endH - wh.start;
         segments.push({
-          left: dp.left + startFrac * pxPerHour,
-          width: Math.max((endFrac - startFrac) * pxPerHour, 2),
+          left: dp.left + startFrac * dpPxPerHour,
+          width: Math.max((endFrac - startFrac) * dpPxPerHour, 2),
         });
       } else {
         const startFrac = (startH - WORKDAY_START) / WORK_HOURS;
@@ -483,22 +519,45 @@ export function Timeline({
               </div>
             </div>
           ) : (
-            /* Tjedan/Mjesec zoom: samo datumi */
-            <div className="flex" style={{ marginLeft: 100 }}>
-              {days.map((day, i) => {
-                const weekend = getDay(day) === 0 || getDay(day) === 6;
-                return (
+            /* Tjedan/Mjesec zoom: dvoslojni header (mjeseci + dani) */
+            <div style={{ marginLeft: 100 }}>
+              {/* Gornji red: Mjeseci */}
+              <div className="flex">
+                {monthGroups?.map((mg, i) => (
                   <div
                     key={i}
-                    className={`flex-shrink-0 text-center text-[10px] border-r border-gray-200 py-1 ${
-                      weekend ? "bg-gray-100 text-gray-400" : "text-gray-600"
-                    }`}
-                    style={{ width: dayWidth }}
+                    className="flex-shrink-0 text-center text-[10px] border-r border-b border-gray-300 py-0.5 font-semibold text-gray-700 bg-gray-50"
+                    style={{ width: mg.width }}
                   >
-                    {zoom === "week" ? formatDayDate(day) : `${day.getDate()}.`}
+                    {mg.label}
                   </div>
-                );
-              })}
+                ))}
+              </div>
+              {/* Donji red: Dani */}
+              <div className="flex">
+                {days.map((day, i) => {
+                  const weekend = getDay(day) === 0 || getDay(day) === 6;
+                  const hasOv = dayHasOverride(i);
+                  const dayLabel = zoom === "week"
+                    ? `${DAY_NAMES_SHORT[getDay(day)]} ${day.getDate()}.`
+                    : `${day.getDate()}.`;
+                  return (
+                    <div
+                      key={i}
+                      className={`flex-shrink-0 text-center text-[10px] border-r border-gray-200 py-0.5 ${
+                        weekend
+                          ? "bg-gray-100 text-gray-400"
+                          : hasOv
+                          ? "bg-yellow-50 text-yellow-700"
+                          : "text-gray-600"
+                      }`}
+                      style={{ width: dayPositions?.[i]?.width ?? dayWidth }}
+                    >
+                      {dayLabel}{hasOv ? " ⚡" : ""}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -530,8 +589,8 @@ export function Timeline({
                 {days.map((day, i) => {
                   const weekend = getDay(day) === 0 || getDay(day) === 6;
                   if (!weekend) return null;
-                  const left = zoom === "day" && dayPositions ? dayPositions[i].left : i * dayWidth;
-                  const w = zoom === "day" && dayPositions ? dayPositions[i].width : dayWidth;
+                  const left = dayPositions ? dayPositions[i].left : i * dayWidth;
+                  const w = dayPositions ? dayPositions[i].width : dayWidth;
                   return (
                     <div
                       key={i}
@@ -550,11 +609,13 @@ export function Timeline({
                 {zoom !== "day" && days.map((day, i) => {
                   const wh = getWorkingHours(machine.id, day, overrides);
                   if (!wh || wh.hours <= WORK_HOURS) return null;
+                  const ovLeft = dayPositions?.[i]?.left ?? i * dayWidth;
+                  const ovWidth = dayPositions?.[i]?.width ?? dayWidth;
                   return (
                     <div
                       key={`ov-${i}`}
                       className="absolute bottom-0.5 text-[7px] text-yellow-600 pointer-events-none"
-                      style={{ left: i * dayWidth + 2, width: dayWidth - 4, textAlign: "center" }}
+                      style={{ left: ovLeft + 2, width: ovWidth - 4, textAlign: "center" }}
                       title={`${wh.start}:00-${wh.end}:00 (${wh.hours}h)`}
                     >
                       ⚡
@@ -567,7 +628,7 @@ export function Timeline({
                   <div
                     key={`sep-${i}`}
                     className="absolute top-0 bottom-0 border-r border-gray-100"
-                    style={{ left: zoom === "day" && dayPositions ? dayPositions[i].left : i * dayWidth }}
+                    style={{ left: dayPositions ? dayPositions[i].left : i * dayWidth }}
                   />
                 ))}
 

@@ -96,6 +96,12 @@ export const s = StyleSheet.create({
   td: {
     fontSize: 8.5,
   },
+  tdMuted: {
+    fontSize: 7,
+    color: "#999",
+    paddingVertical: 4,
+    paddingHorizontal: 3,
+  },
   tdBold: {
     fontSize: 8.5,
     fontFamily: "Roboto",

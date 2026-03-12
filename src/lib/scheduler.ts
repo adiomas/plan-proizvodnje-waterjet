@@ -383,7 +383,8 @@ function calculateDeadline(
   order: WorkOrder,
   end: Date | null
 ): DeadlineStatus {
-  if (!order.rok_isporuke || !end) return null;
+  if (!order.rok_isporuke) return end ? "BEZ ROKA" : null;
+  if (!end) return null;
   const deadline = parseISO(order.rok_isporuke);
   const endDay = startOfDay(end);
   const deadlineDay = startOfDay(deadline);

@@ -149,7 +149,10 @@ function DailyPage({
                 <Text style={[s.td, { width: DAILY_COLS.status, textAlign: "center" }]}>
                   {seg.order.status}
                 </Text>
-                <Text style={[cellStyle, { width: DAILY_COLS.stanje, textAlign: "center" }]}>
+                <Text style={[
+                  seg.order.stanje === "BEZ ROKA" ? s.tdMuted : cellStyle,
+                  { width: DAILY_COLS.stanje, textAlign: "center" }
+                ]}>
                   {seg.order.stanje || "—"}
                 </Text>
               </View>

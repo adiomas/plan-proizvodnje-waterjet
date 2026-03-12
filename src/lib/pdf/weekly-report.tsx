@@ -190,7 +190,10 @@ function DaySection({
                     ? formatRokShort(seg.order.order.rok_isporuke)
                     : "—"}
                 </Text>
-                <Text style={[cellStyle, { width: WEEKLY_COLS.stanje, textAlign: "center" }]}>
+                <Text style={[
+                  seg.order.stanje === "BEZ ROKA" ? s.tdMuted : cellStyle,
+                  { width: WEEKLY_COLS.stanje, textAlign: "center" }
+                ]}>
                   {seg.order.stanje || "—"}
                 </Text>
               </View>

@@ -102,6 +102,8 @@ function StanjeBadge({ stanje }: { stanje: string }) {
       ? "bg-red-50 text-red-600"
       : stanje === "KRITIČNO"
       ? "bg-yellow-50 text-yellow-700"
+      : stanje === "BEZ ROKA"
+      ? "bg-gray-50 text-gray-400"
       : "bg-blue-50 text-blue-600";
   return (
     <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${style}`}>
