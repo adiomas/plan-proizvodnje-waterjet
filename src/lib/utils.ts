@@ -6,6 +6,7 @@ import {
   setSeconds,
   setMilliseconds,
 } from "date-fns";
+import type { MachineOverride, WorkingHours } from "./types";
 
 export const WORKDAY_START = 7;
 export const WORKDAY_END = 15;
@@ -75,4 +76,38 @@ export function formatTime(date: Date): string {
   const hh = String(date.getHours()).padStart(2, "0");
   const mm = String(date.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
+}
+
+/** Parsiraj "HH:MM" string u broj sati (npr. "07:00" → 7, "13:30" → 13.5) */
+export function parseTime(timeStr: string): number {
+  const [h, m] = timeStr.split(":").map(Number);
+  return h + (m || 0) / 60;
+}
+
+/**
+ * Dohvati radno vrijeme za određeni stroj na određeni dan.
+ * Vraća null ako je neradni dan (vikend bez overridea).
+ */
+export function getWorkingHours(
+  machineId: string,
+  date: Date,
+  overrides: MachineOverride[]
+): WorkingHours | null {
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+  const override = overrides.find(
+    (o) => o.machine_id === machineId && o.date === dateStr
+  );
+
+  if (override) {
+    const start = parseTime(override.work_start);
+    const end = parseTime(override.work_end);
+    return { start, end, hours: end - start };
+  }
+
+  // Vikend bez overridea = neradni dan
+  if (isWeekend(date)) return null;
+
+  // Default radno vrijeme
+  return { start: WORKDAY_START, end: WORKDAY_END, hours: HOURS_PER_DAY };
 }
