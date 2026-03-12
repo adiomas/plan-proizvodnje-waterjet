@@ -51,3 +51,20 @@ export type NewWorkOrder = Omit<
   WorkOrder,
   "id" | "user_id" | "created_at" | "updated_at"
 >;
+
+export interface MachineOverride {
+  id: string;
+  user_id: string;
+  machine_id: string;
+  date: string;       // ISO date "2026-03-21"
+  work_start: string; // "07:00"
+  work_end: string;   // "19:00"
+  created_at: string;
+}
+
+/** Radno vrijeme za određeni stroj na određeni dan. null = neradni dan. */
+export interface WorkingHours {
+  start: number; // 7
+  end: number;   // 19
+  hours: number; // 12
+}
