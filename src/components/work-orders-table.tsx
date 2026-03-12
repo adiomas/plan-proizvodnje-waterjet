@@ -1,27 +1,16 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
+  getSortedRowModel,
   flexRender,
   type ColumnDef,
+  type SortingState,
+  type VisibilityState,
+  type OnChangeFn,
 } from "@tanstack/react-table";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import type { Machine, WorkOrder, ScheduledOrder } from "@/lib/types";
 import { formatDayDate, formatTime } from "@/lib/utils";
 
@@ -31,8 +20,33 @@ interface WorkOrdersViewProps {
   scheduled: ScheduledOrder[];
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onReorder: (reordered: WorkOrder[]) => Promise<void>;
+  hoveredOrderId?: string | null;
+  onHoverOrder?: (id: string | null) => void;
+  columnVisibility?: VisibilityState;
+  onColumnVisibilityChange?: OnChangeFn<VisibilityState>;
 }
+
+/* Exported column metadata for external ColumnToggle rendering */
+export const TOGGLEABLE_COLUMNS = [
+  { id: "rn_id", header: "RN ID" },
+  { id: "opis", header: "Opis" },
+  { id: "napomena", header: "Napomena" },
+  { id: "rok_isporuke", header: "Rok" },
+  { id: "machine_id", header: "Stroj" },
+  { id: "trajanje_h", header: "Trajanje (h)" },
+  { id: "zeljeni_redoslijed", header: "Redoslijed" },
+  { id: "najraniji_pocetak", header: "Početak od" },
+  { id: "start", header: "Početak" },
+  { id: "end", header: "Kraj" },
+  { id: "status", header: "Status" },
+  { id: "stanje", header: "Stanje" },
+  { id: "izvedba", header: "Izvedba" },
+];
+
+export const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
+  napomena: false,
+  najraniji_pocetak: false,
+};
 
 /* ================================================================
    SHARED: Empty State
@@ -42,21 +56,57 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-gray-400">
       <svg
-        width="48"
-        height="48"
+        width="40"
+        height="40"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"
-        className="mb-3 text-gray-300"
+        className="mb-3 text-gray-200"
       >
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <line x1="12" y1="8" x2="12" y2="16" />
         <line x1="8" y1="12" x2="16" y2="12" />
       </svg>
-      <p className="text-sm font-medium text-gray-500">Nema naloga</p>
-      <p className="text-xs text-gray-400 mt-1">Dodaj prvi nalog tipkom +</p>
+      <p className="text-xs font-medium text-gray-400">Nema naloga</p>
+      <p className="text-[11px] text-gray-300 mt-1">Dodaj prvi nalog tipkom +</p>
     </div>
+  );
+}
+
+/* ================================================================
+   SHARED: Status/Stanje Badge
+   ================================================================ */
+
+function StatusBadge({ status }: { status: string }) {
+  const style =
+    status === "OK"
+      ? "bg-emerald-50 text-emerald-600"
+      : status === "PREKLAPANJE"
+      ? "bg-red-50 text-red-600 border border-red-200"
+      : status === "GREŠKA UNOSA"
+      ? "bg-amber-50 text-amber-600"
+      : status === "NEMA RASPOREDA"
+      ? "bg-gray-100 text-gray-500"
+      : "bg-gray-100 text-gray-500";
+  return (
+    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${style}`}>
+      {status}
+    </span>
+  );
+}
+
+function StanjeBadge({ stanje }: { stanje: string }) {
+  const style =
+    stanje === "KASNI"
+      ? "bg-red-50 text-red-600"
+      : stanje === "KRITIČNO"
+      ? "bg-yellow-50 text-yellow-700"
+      : "bg-blue-50 text-blue-600";
+  return (
+    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${style}`}>
+      {stanje}
+    </span>
   );
 }
 
@@ -79,6 +129,7 @@ function OrderCard({
 }) {
   const isOverlap = sched?.status === "PREKLAPANJE";
   const isLate = sched?.stanje === "KASNI";
+  const isCritical = sched?.stanje === "KRITIČNO";
   const isDone = order.izvedba === "ZAVRŠEN";
 
   const cycleIzvedba = (e: React.MouseEvent) => {
@@ -94,56 +145,48 @@ function OrderCard({
 
   return (
     <div
-      className={`mx-3 mb-2 rounded-xl border overflow-hidden transition-all ${
+      className={`mx-3 mb-2 rounded-lg border overflow-hidden transition-all ${
         isOverlap
-          ? "border-red-300 bg-red-50/60"
+          ? "border-red-200 bg-red-50/40"
           : isLate
           ? "border-amber-200 bg-amber-50/30"
-          : "border-gray-200/80 bg-white"
-      } ${isDone ? "opacity-50" : ""}`}
+          : isCritical
+          ? "border-yellow-200 bg-yellow-50/30"
+          : "border-gray-200 bg-white"
+      } ${isDone ? "opacity-40" : ""}`}
     >
       <div className="flex">
-        {/* Machine color bar */}
         <div
-          className="w-1 flex-shrink-0"
-          style={{ backgroundColor: machine?.color ?? "#94A3B8" }}
+          className="w-0.5 flex-shrink-0"
+          style={{ backgroundColor: machine?.color ?? "#D1D5DB" }}
         />
-
         <div className="flex-1 px-3 py-2.5 min-w-0">
-          {/* Row 1: RN ID + Duration */}
           <div className="flex items-center justify-between gap-2">
             <span className="font-semibold text-[13px] text-gray-900 truncate">
               {order.rn_id}
             </span>
-            <span className="text-[11px] text-gray-400 tabular-nums flex-shrink-0 font-medium">
+            <span className="text-[11px] text-gray-400 tabular-nums flex-shrink-0">
               {order.trajanje_h}h
             </span>
           </div>
-
-          {/* Row 2: Opis */}
           {order.opis && (
             <p className="text-[11px] text-gray-500 truncate mt-0.5 leading-snug">
               {order.opis}
             </p>
           )}
-
-          {/* Row 3: Machine + Schedule */}
           <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-gray-400 flex-wrap">
-            <span
-              className="font-medium"
-              style={{ color: machine?.color }}
-            >
+            <span className="font-medium text-gray-500">
               {machine?.name ?? "—"}
             </span>
             {sched?.start && (
               <>
-                <span className="text-gray-300">·</span>
+                <span className="text-gray-200">·</span>
                 <span className="tabular-nums">
                   {formatDayDate(sched.start)} {formatTime(sched.start)}
                 </span>
                 {sched.end && (
                   <>
-                    <span className="text-gray-300">→</span>
+                    <span className="text-gray-200">→</span>
                     <span className="tabular-nums">
                       {formatDayDate(sched.end)} {formatTime(sched.end)}
                     </span>
@@ -152,70 +195,27 @@ function OrderCard({
               </>
             )}
           </div>
-
-          {/* Row 4: Status badges + Izvedba + Delete */}
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-            {sched && sched.status === "OK" && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">
-                OK
-              </span>
-            )}
-            {sched && sched.status !== "OK" && (
-              <span
-                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                  sched.status === "PREKLAPANJE"
-                    ? "bg-red-100 text-red-700"
-                    : sched.status === "GREŠKA UNOSA"
-                    ? "bg-red-100 text-red-600"
-                    : "bg-amber-100 text-amber-700"
-                }`}
-              >
-                {sched.status}
-              </span>
-            )}
-            {sched?.stanje && (
-              <span
-                className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                  sched.stanje === "KASNI"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-emerald-50 text-emerald-600"
-                }`}
-              >
-                {sched.stanje}
-              </span>
-            )}
-
+            {sched && <StatusBadge status={sched.status} />}
+            {sched?.stanje && <StanjeBadge stanje={sched.stanje} />}
             <div className="flex-1" />
-
-            {/* Izvedba toggle */}
             <button
               onClick={cycleIzvedba}
-              className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border active:scale-95 transition-transform ${
+              className={`text-[10px] font-medium px-2.5 py-1 rounded border active:scale-95 transition-transform ${
                 order.izvedba === "PLANIRAN"
-                  ? "bg-gray-50 border-gray-200 text-gray-600"
+                  ? "bg-white border-gray-200 text-gray-500"
                   : order.izvedba === "U TIJEKU"
-                  ? "bg-blue-50 border-blue-200 text-blue-700"
-                  : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  ? "bg-gray-900 border-gray-900 text-white"
+                  : "bg-gray-100 border-gray-200 text-gray-400"
               }`}
             >
               {order.izvedba}
             </button>
-
-            {/* Delete */}
             <button
               onClick={() => onDelete(order.id)}
-              className="text-gray-300 active:text-red-500 p-1 -mr-1"
+              className="text-gray-200 active:text-red-500 p-1 -mr-1"
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="3 6 5 6 21 6" />
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
               </svg>
@@ -259,7 +259,7 @@ function EditableCell({
           }}
           onBlur={() => setEditing(false)}
           autoFocus
-          className="w-full bg-white border border-blue-400 rounded px-1 py-0.5 text-xs"
+          className="w-full bg-white border border-gray-300 rounded px-1 py-0.5 text-xs focus:outline-none focus:border-gray-400"
         >
           <option value="">—</option>
           {options.map((o) => (
@@ -287,7 +287,7 @@ function EditableCell({
           if (e.key === "Escape") setEditing(false);
         }}
         autoFocus
-        className="w-full bg-white border border-blue-400 rounded px-1 py-0.5 text-xs"
+        className="w-full bg-white border border-gray-300 rounded px-1 py-0.5 text-xs focus:outline-none focus:border-gray-400"
         step={type === "number" ? "0.5" : undefined}
       />
     );
@@ -299,7 +299,7 @@ function EditableCell({
         setDraft(value);
         setEditing(true);
       }}
-      className="cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded block truncate min-h-[1.2em]"
+      className="cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded block truncate min-h-[1.2em]"
     >
       {displayValue ?? (value || "—")}
     </span>
@@ -307,35 +307,87 @@ function EditableCell({
 }
 
 /* ================================================================
-   DESKTOP: Sortable Row (DnD)
+   DESKTOP: Column Visibility Dropdown
    ================================================================ */
 
-function SortableRow({
-  id,
-  children,
+export function ColumnToggle({
+  columns,
 }: {
-  id: string;
-  children: React.ReactNode;
+  columns: { id: string; header: string; isVisible: boolean; toggle: (event: unknown) => void }[];
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
 
   return (
-    <tr ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
-    </tr>
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-1.5 text-xs border rounded-md px-2.5 py-1.5 transition-colors ${
+          open
+            ? "bg-[#f0f4f8] border-[#d0d5dd] text-[#344054]"
+            : "border-[#d0d5dd] text-[#475467] hover:bg-[#f9fafb]"
+        }`}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+        </svg>
+        Stupci
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-white border border-[#eaecf0] rounded-lg shadow-lg py-1 z-50 min-w-[160px]">
+          {columns.map((col) => (
+            <label
+              key={col.id}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs text-[#344054] hover:bg-[#f9fafb] cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                checked={col.isVisible}
+                onChange={col.toggle}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+              />
+              {col.header}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   DESKTOP: Sort Indicator
+   ================================================================ */
+
+function SortIcon({ direction }: { direction: "asc" | "desc" | false }) {
+  if (!direction) {
+    return (
+      <svg width="10" height="10" viewBox="0 0 10 10" className="inline ml-1 text-[#98a2b3]">
+        <path d="M5 2L7 4.5H3L5 2Z" fill="currentColor" opacity="0.4" />
+        <path d="M5 8L3 5.5H7L5 8Z" fill="currentColor" opacity="0.4" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" className="inline ml-1 text-[#344054]">
+      {direction === "asc" ? (
+        <path d="M5 2L7.5 5.5H2.5L5 2Z" fill="currentColor" />
+      ) : (
+        <path d="M5 8L2.5 4.5H7.5L5 8Z" fill="currentColor" />
+      )}
+    </svg>
   );
 }
 
@@ -350,7 +402,10 @@ function DesktopTable({
   scheduleMap,
   onUpdate,
   onDelete,
-  onReorder,
+  hoveredOrderId,
+  onHoverOrder,
+  columnVisibility,
+  onColumnVisibilityChange,
 }: {
   orders: WorkOrder[];
   machines: Machine[];
@@ -358,8 +413,13 @@ function DesktopTable({
   scheduleMap: Map<string, ScheduledOrder>;
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onReorder: (reordered: WorkOrder[]) => Promise<void>;
+  hoveredOrderId?: string | null;
+  onHoverOrder?: (id: string | null) => void;
+  columnVisibility: VisibilityState;
+  onColumnVisibilityChange: OnChangeFn<VisibilityState>;
 }) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+
   const handleFieldUpdate = useCallback(
     (orderId: string, field: keyof WorkOrder, rawValue: string) => {
       let value: string | number | null = rawValue;
@@ -380,17 +440,10 @@ function DesktopTable({
   const columns: ColumnDef<WorkOrder>[] = useMemo(
     () => [
       {
-        id: "drag",
-        header: "",
-        size: 24,
-        cell: () => (
-          <span className="text-gray-300 cursor-grab text-xs">&#x2807;</span>
-        ),
-      },
-      {
         accessorKey: "rn_id",
         header: "RN ID",
         size: 80,
+        enableSorting: true,
         cell: ({ row }) => (
           <EditableCell
             value={row.original.rn_id}
@@ -402,6 +455,7 @@ function DesktopTable({
         accessorKey: "opis",
         header: "Opis",
         size: 140,
+        enableSorting: false,
         cell: ({ row }) => (
           <EditableCell
             value={row.original.opis ?? ""}
@@ -413,6 +467,7 @@ function DesktopTable({
         accessorKey: "napomena",
         header: "Napomena",
         size: 120,
+        enableSorting: false,
         cell: ({ row }) => (
           <EditableCell
             value={row.original.napomena ?? ""}
@@ -424,6 +479,7 @@ function DesktopTable({
         accessorKey: "rok_isporuke",
         header: "Rok",
         size: 100,
+        enableSorting: true,
         cell: ({ row }) => (
           <EditableCell
             value={row.original.rok_isporuke ?? ""}
@@ -438,6 +494,12 @@ function DesktopTable({
         accessorKey: "machine_id",
         header: "Stroj",
         size: 100,
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => {
+          const a = machineMap.get(rowA.original.machine_id)?.name ?? "";
+          const b = machineMap.get(rowB.original.machine_id)?.name ?? "";
+          return a.localeCompare(b);
+        },
         cell: ({ row }) => {
           const machine = machineMap.get(row.original.machine_id);
           return (
@@ -457,6 +519,7 @@ function DesktopTable({
         accessorKey: "trajanje_h",
         header: "Trajanje (h)",
         size: 80,
+        enableSorting: true,
         cell: ({ row }) => (
           <EditableCell
             value={String(row.original.trajanje_h)}
@@ -471,6 +534,7 @@ function DesktopTable({
         accessorKey: "zeljeni_redoslijed",
         header: "Redoslijed",
         size: 80,
+        enableSorting: true,
         cell: ({ row }) => (
           <EditableCell
             value={row.original.zeljeni_redoslijed?.toString() ?? ""}
@@ -485,25 +549,50 @@ function DesktopTable({
         accessorKey: "najraniji_pocetak",
         header: "Početak od",
         size: 100,
-        cell: ({ row }) => (
-          <EditableCell
-            value={row.original.najraniji_pocetak ?? ""}
-            onSave={(v) =>
-              handleFieldUpdate(row.original.id, "najraniji_pocetak", v)
-            }
-            type="date"
-          />
-        ),
+        enableSorting: true,
+        cell: ({ row }) => {
+          const val = row.original.najraniji_pocetak;
+          if (!val) {
+            return (
+              <EditableCell
+                value=""
+                onSave={(v) =>
+                  handleFieldUpdate(row.original.id, "najraniji_pocetak", v)
+                }
+                type="date"
+              />
+            );
+          }
+          return (
+            <div className="flex items-center gap-1">
+              <EditableCell
+                value={val}
+                onSave={(v) =>
+                  handleFieldUpdate(row.original.id, "najraniji_pocetak", v)
+                }
+                type="date"
+              />
+              <button
+                onClick={() => onUpdate(row.original.id, { najraniji_pocetak: null })}
+                className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0"
+                title="Otkači"
+              >
+                ✕
+              </button>
+            </div>
+          );
+        },
       },
       {
         id: "start",
         header: "Početak",
-        size: 110,
+        size: 120,
+        enableSorting: false,
         cell: ({ row }) => {
           const s = scheduleMap.get(row.original.id);
-          if (!s?.start) return <span className="text-gray-300">—</span>;
+          if (!s?.start) return <span className="text-[#98a2b3]">—</span>;
           return (
-            <span className="text-xs text-gray-600 tabular-nums">
+            <span className="text-xs text-[#475467] tabular-nums">
               {formatDayDate(s.start)} {formatTime(s.start)}
             </span>
           );
@@ -512,12 +601,13 @@ function DesktopTable({
       {
         id: "end",
         header: "Kraj",
-        size: 110,
+        size: 120,
+        enableSorting: false,
         cell: ({ row }) => {
           const s = scheduleMap.get(row.original.id);
-          if (!s?.end) return <span className="text-gray-300">—</span>;
+          if (!s?.end) return <span className="text-[#98a2b3]">—</span>;
           return (
-            <span className="text-xs text-gray-600 tabular-nums">
+            <span className="text-xs text-[#475467] tabular-nums">
               {formatDayDate(s.end)} {formatTime(s.end)}
             </span>
           );
@@ -526,49 +616,30 @@ function DesktopTable({
       {
         id: "status",
         header: "Status",
-        size: 100,
+        size: 110,
+        enableSorting: false,
         cell: ({ row }) => {
           const s = scheduleMap.get(row.original.id);
           if (!s) return null;
-          const colorClass =
-            s.status === "OK"
-              ? "text-emerald-700 bg-emerald-50"
-              : s.status === "PREKLAPANJE"
-              ? "text-red-700 bg-red-50 font-bold"
-              : s.status === "GREŠKA UNOSA"
-              ? "text-red-700 bg-red-50"
-              : "text-amber-700 bg-amber-50";
-          return (
-            <span className={`text-xs px-1.5 py-0.5 rounded ${colorClass}`}>
-              {s.status}
-            </span>
-          );
+          return <StatusBadge status={s.status} />;
         },
       },
       {
         id: "stanje",
         header: "Stanje",
-        size: 90,
+        size: 100,
+        enableSorting: false,
         cell: ({ row }) => {
           const s = scheduleMap.get(row.original.id);
-          if (!s?.stanje) return <span className="text-gray-300">—</span>;
-          return (
-            <span
-              className={`text-xs px-1.5 py-0.5 rounded ${
-                s.stanje === "KASNI"
-                  ? "text-red-700 bg-red-50 font-bold"
-                  : "text-emerald-700 bg-emerald-50"
-              }`}
-            >
-              {s.stanje}
-            </span>
-          );
+          if (!s?.stanje) return <span className="text-[#98a2b3]">—</span>;
+          return <StanjeBadge stanje={s.stanje} />;
         },
       },
       {
         accessorKey: "izvedba",
         header: "Izvedba",
         size: 90,
+        enableSorting: true,
         cell: ({ row }) => (
           <EditableCell
             value={row.original.izvedba}
@@ -586,10 +657,11 @@ function DesktopTable({
         id: "actions",
         header: "",
         size: 30,
+        enableSorting: false,
         cell: ({ row }) => (
           <button
             onClick={() => onDelete(row.original.id)}
-            className="text-gray-300 hover:text-red-500 text-xs"
+            className="text-[#d0d5dd] hover:text-red-500 text-xs transition-colors"
             title="Obriši nalog"
           >
             &#x2715;
@@ -603,96 +675,89 @@ function DesktopTable({
   const table = useReactTable({
     data: orders,
     columns,
+    state: { sorting, columnVisibility },
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: onColumnVisibilityChange,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getRowId: (row) => row.id,
   });
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = orders.findIndex((o) => o.id === active.id);
-    const newIndex = orders.findIndex((o) => o.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const reordered = arrayMove(orders, oldIndex, newIndex).map((o, i) => ({
-      ...o,
-      sort_order: i,
-    }));
-    onReorder(reordered);
-  };
-
   return (
-    <div className="overflow-auto h-full">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
+    <div className="flex flex-col h-full">
+      <div className="overflow-auto flex-1 min-h-0">
         <table className="w-full text-xs border-collapse">
           <thead>
             {table.getHeaderGroups().map((hg) => (
               <tr
                 key={hg.id}
-                className="bg-[#0C1222] text-white sticky top-0 z-10"
+                className="bg-[#f0f4f8] sticky top-0 z-10 border-b-2 border-[#d0d5dd]"
               >
-                {hg.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="px-1.5 py-2 text-left font-medium whitespace-nowrap text-[11px] tracking-wide uppercase"
-                    style={{ width: header.getSize() }}
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                  </th>
-                ))}
+                {hg.headers.map((header) => {
+                  const canSort = header.column.getCanSort();
+                  return (
+                    <th
+                      key={header.id}
+                      className={`px-2 py-2.5 text-left font-semibold whitespace-nowrap text-[10px] tracking-wide uppercase text-[#344054] ${
+                        canSort ? "cursor-pointer select-none hover:bg-[#e8f0fe]" : ""
+                      }`}
+                      style={{ width: header.getSize() }}
+                      onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                    >
+                      <span className="flex items-center">
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                        {canSort && (
+                          <SortIcon direction={header.column.getIsSorted()} />
+                        )}
+                      </span>
+                    </th>
+                  );
+                })}
               </tr>
             ))}
           </thead>
-          <SortableContext
-            items={orders.map((o) => o.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <tbody>
-              {table.getRowModel().rows.map((row) => {
-                const s = scheduleMap.get(row.original.id);
-                const machine = machineMap.get(row.original.machine_id);
-                const isOverlap = s?.status === "PREKLAPANJE";
-                const bgColor = isOverlap
-                  ? "#F4CCCC"
-                  : machine?.color_light
-                  ? `${machine.color_light}40`
-                  : undefined;
+          <tbody>
+            {table.getRowModel().rows.map((row, rowIndex) => {
+              const s = scheduleMap.get(row.original.id);
+              const isOverlap = s?.status === "PREKLAPANJE";
+              const isHovered = hoveredOrderId === row.original.id;
+              const zebraClass = rowIndex % 2 === 0 ? "bg-white" : "bg-[#f9fafb]";
 
-                return (
-                  <SortableRow key={row.id} id={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <td
-                        key={cell.id}
-                        className="px-1.5 py-1 border-b border-gray-200"
-                        style={{ backgroundColor: bgColor }}
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </td>
-                    ))}
-                  </SortableRow>
-                );
-              })}
-            </tbody>
-          </SortableContext>
+              const rowBg = isHovered
+                ? "bg-blue-50 ring-2 ring-blue-400 ring-inset"
+                : isOverlap
+                ? "bg-red-50/50"
+                : zebraClass;
+
+              return (
+                <tr
+                  key={row.id}
+                  className={`border-b border-[#eaecf0] transition-colors ${rowBg}`}
+                  onMouseEnter={() => onHoverOrder?.(row.original.id)}
+                  onMouseLeave={() => onHoverOrder?.(null)}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      className="px-2 py-1.5"
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
         </table>
-      </DndContext>
 
-      {orders.length === 0 && <EmptyState />}
+        {orders.length === 0 && <EmptyState />}
+      </div>
     </div>
   );
 }
@@ -707,7 +772,10 @@ export function WorkOrdersView({
   scheduled,
   onUpdate,
   onDelete,
-  onReorder,
+  hoveredOrderId,
+  onHoverOrder,
+  columnVisibility,
+  onColumnVisibilityChange,
 }: WorkOrdersViewProps) {
   const machineMap = useMemo(() => {
     const m = new Map<string, Machine>();
@@ -739,7 +807,6 @@ export function WorkOrdersView({
             />
           ))
         )}
-        {/* Spacer for FAB */}
         <div className="h-20" />
       </div>
 
@@ -752,7 +819,10 @@ export function WorkOrdersView({
           scheduleMap={scheduleMap}
           onUpdate={onUpdate}
           onDelete={onDelete}
-          onReorder={onReorder}
+          hoveredOrderId={hoveredOrderId}
+          onHoverOrder={onHoverOrder}
+          columnVisibility={columnVisibility ?? DEFAULT_COLUMN_VISIBILITY}
+          onColumnVisibilityChange={onColumnVisibilityChange ?? (() => {})}
         />
       </div>
     </>

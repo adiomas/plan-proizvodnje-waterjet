@@ -23,7 +23,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#14B8A6",
+  themeColor: "#FFFFFF",
 };
 
 export default function RootLayout({
@@ -33,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="hr" className={dmSans.variable}>
-      <body className="font-sans antialiased bg-[#F8F9FB] text-gray-900">
+      <body className="font-sans antialiased bg-white text-gray-900">
         {children}
       </body>
     </html>

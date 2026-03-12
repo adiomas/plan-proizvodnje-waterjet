@@ -50,6 +50,45 @@ export function useWorkOrders() {
   };
 
   const updateOrder = async (id: string, updates: Partial<WorkOrder>) => {
+    // Auto-shift: kad se mijenja zeljeni_redoslijed, pomakni kolidirajuće naloge na istom stroju
+    if (
+      "zeljeni_redoslijed" in updates &&
+      updates.zeljeni_redoslijed !== null &&
+      updates.zeljeni_redoslijed !== undefined
+    ) {
+      const order = orders.find((o) => o.id === id);
+      const machineId = ("machine_id" in updates ? updates.machine_id : order?.machine_id) as string | undefined;
+
+      if (machineId) {
+        const newRedoslijed = updates.zeljeni_redoslijed;
+        const toShift = orders.filter(
+          (o) =>
+            o.id !== id &&
+            o.machine_id === machineId &&
+            o.zeljeni_redoslijed !== null &&
+            o.zeljeni_redoslijed! >= newRedoslijed
+        );
+
+        for (const o of toShift) {
+          await supabase
+            .from("excel_work_orders")
+            .update({ zeljeni_redoslijed: o.zeljeni_redoslijed! + 1 })
+            .eq("id", o.id);
+        }
+
+        if (toShift.length > 0) {
+          setOrders((prev) =>
+            prev.map((o) => {
+              if (toShift.some((s) => s.id === o.id)) {
+                return { ...o, zeljeni_redoslijed: o.zeljeni_redoslijed! + 1 };
+              }
+              return o;
+            })
+          );
+        }
+      }
+    }
+
     const { error } = await supabase
       .from("excel_work_orders")
       .update({ ...updates, updated_at: new Date().toISOString() })

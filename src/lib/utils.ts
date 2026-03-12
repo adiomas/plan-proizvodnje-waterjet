@@ -36,6 +36,15 @@ export function nextWorkday(date: Date): Date {
   return d;
 }
 
+/** Prethodni radni dan (preskače vikende unatrag) */
+export function prevWorkday(date: Date): Date {
+  let d = addDays(date, -1);
+  while (isWeekend(d)) {
+    d = addDays(d, -1);
+  }
+  return d;
+}
+
 /**
  * WORKDAY.INTL ekvivalent — preskače vikende.
  * Pomakni se `days` radnih dana unaprijed od `start`.

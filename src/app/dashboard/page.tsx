@@ -7,11 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 import { useMachines } from "@/hooks/use-machines";
 import { useWorkOrders } from "@/hooks/use-work-orders";
 import { computeSchedule } from "@/lib/scheduler";
-import { WorkOrdersView } from "@/components/work-orders-table";
+import { WorkOrdersView, ColumnToggle, TOGGLEABLE_COLUMNS, DEFAULT_COLUMN_VISIBILITY } from "@/components/work-orders-table";
+import type { VisibilityState } from "@tanstack/react-table";
 import { Timeline } from "@/components/timeline";
 import { MachineDialog } from "@/components/machine-dialog";
 import { NewOrderSheet } from "@/components/new-order-dialog";
 import { StatusBar } from "@/components/status-bar";
+import { SchedulingInfoModal } from "@/components/scheduling-info-modal";
 
 type Tab = "nalozi" | "gant";
 
@@ -31,16 +33,18 @@ export default function DashboardPage() {
     addOrder,
     updateOrder,
     deleteOrder,
-    reorderOrders,
   } = useWorkOrders();
 
   const [activeTab, setActiveTab] = useState<Tab>("nalozi");
   const [showMachineDialog, setShowMachineDialog] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [filterMachine, setFilterMachine] = useState("");
   const [filterIzvedba, setFilterIzvedba] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [hoveredOrderId, setHoveredOrderId] = useState<string | null>(null);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY);
 
   const ganttStartDate = useMemo(() => startOfDay(new Date()), []);
 
@@ -90,7 +94,18 @@ export default function DashboardPage() {
   const lateCount = scheduleResult.scheduled.filter(
     (s) => s.stanje === "KASNI"
   ).length;
+  const criticalCount = scheduleResult.scheduled.filter(
+    (s) => s.stanje === "KRITIČNO"
+  ).length;
   const activeCount = orders.filter((o) => o.izvedba !== "ZAVRŠEN").length;
+
+  const handleMoveOrder = async (orderId: string, targetDate: string) => {
+    await updateOrder(orderId, { najraniji_pocetak: targetDate });
+  };
+
+  const handleUnpinOrder = async (orderId: string) => {
+    await updateOrder(orderId, { najraniji_pocetak: null });
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -102,11 +117,11 @@ export default function DashboardPage() {
 
   if (machinesLoading || ordersLoading) {
     return (
-      <div className="h-[100dvh] flex items-center justify-center bg-[#F0F4FF]">
+      <div className="h-[100dvh] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-gray-400 tracking-wide">
-            Učitavam plan...
+          <div className="w-6 h-6 border-[1.5px] border-gray-900 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs text-gray-400">
+            Učitavam...
           </span>
         </div>
       </div>
@@ -114,13 +129,12 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-[#F0F4FF]">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-white">
       {/* ======== HEADER ======== */}
-      <header className="bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-500 text-white px-4 py-2.5 flex items-center justify-between flex-shrink-0 shadow-md">
+      <header className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2.5">
-          {/* Logo mark */}
-          <div className="w-7 h-7 rounded-lg bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <div className="w-7 h-7 rounded-md bg-gray-900 flex items-center justify-center flex-shrink-0">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path
                 d="M8 1L2 5v6l6 4 6-4V5L8 1z"
                 stroke="white"
@@ -131,46 +145,63 @@ export default function DashboardPage() {
             </svg>
           </div>
           <div>
-            <h1 className="text-sm font-semibold tracking-tight leading-tight">
+            <h1 className="text-sm font-semibold text-gray-900 tracking-tight leading-tight">
               Plan Proizvodnje
             </h1>
-            <p className="text-[10px] text-white/60 leading-tight">
+            <p className="text-[10px] text-gray-400 leading-tight">
               Waterjet Cutting
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Info button */}
+          <button
+            onClick={() => setShowInfo(true)}
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            title="Upute"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+          </button>
           {/* Alert badges */}
           {overlapCount > 0 && (
-            <span className="hidden sm:inline-flex text-[10px] bg-red-400/20 text-red-100 px-2 py-0.5 rounded-full font-medium">
+            <span className="hidden sm:inline-flex text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
               {overlapCount} prekl.
             </span>
           )}
           {lateCount > 0 && (
-            <span className="hidden sm:inline-flex text-[10px] bg-amber-400/20 text-amber-100 px-2 py-0.5 rounded-full font-medium">
+            <span className="hidden sm:inline-flex text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium border border-amber-100">
               {lateCount} kasni
+            </span>
+          )}
+          {criticalCount > 0 && (
+            <span className="hidden sm:inline-flex text-[10px] bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium border border-yellow-200">
+              {criticalCount} kritično
             </span>
           )}
           {/* Desktop: Novi nalog button */}
           <button
             onClick={() => setShowNewOrder(true)}
-            className="hidden lg:inline-flex items-center gap-1.5 text-xs font-medium bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors"
+            className="hidden lg:inline-flex items-center gap-1.5 text-xs font-medium bg-gray-900 text-white px-3 py-1.5 rounded-md hover:bg-gray-800 transition-colors"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             Novi nalog
           </button>
-          {/* Machines button — cog icon */}
+          {/* Machines button */}
           <button
             onClick={() => setShowMachineDialog(true)}
-            className="text-white/60 hover:text-white p-1.5 rounded-lg hover:bg-white/15 transition-colors"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
             title="Strojevi"
           >
             <svg
-              width="18"
-              height="18"
+              width="16"
+              height="16"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -184,19 +215,18 @@ export default function DashboardPage() {
           {/* Logout */}
           <button
             onClick={handleLogout}
-            className="text-white/40 hover:text-white/80 text-[11px] transition-colors"
+            className="text-gray-400 hover:text-gray-600 text-[11px] transition-colors"
           >
             Odjava
           </button>
         </div>
       </header>
 
-      {/* ======== DESKTOP: Toolbar + split view ======== */}
       {/* ======== MOBILE: Tab bar ======== */}
-      <div className="lg:hidden bg-white border-b px-4 py-2 flex-shrink-0">
-        <div className="relative flex bg-gray-100 rounded-lg p-0.5 max-w-[240px]">
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
+        <div className="relative flex bg-gray-100 rounded-md p-0.5 max-w-[240px]">
           <div
-            className="absolute top-0.5 bottom-0.5 bg-white rounded-md shadow-sm transition-transform duration-200 ease-out"
+            className="absolute top-0.5 bottom-0.5 bg-white rounded shadow-sm transition-transform duration-200 ease-out"
             style={{
               width: "50%",
               transform:
@@ -207,7 +237,7 @@ export default function DashboardPage() {
           />
           <button
             onClick={() => setActiveTab("nalozi")}
-            className={`relative z-10 flex-1 text-xs font-medium py-2 rounded-md text-center transition-colors ${
+            className={`relative z-10 flex-1 text-xs font-medium py-1.5 rounded text-center transition-colors ${
               activeTab === "nalozi" ? "text-gray-900" : "text-gray-400"
             }`}
           >
@@ -218,7 +248,7 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => setActiveTab("gant")}
-            className={`relative z-10 flex-1 text-xs font-medium py-2 rounded-md text-center transition-colors ${
+            className={`relative z-10 flex-1 text-xs font-medium py-1.5 rounded text-center transition-colors ${
               activeTab === "gant" ? "text-gray-900" : "text-gray-400"
             }`}
           >
@@ -227,16 +257,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ======== CONTENT ======== */}
-      {/* Desktop: stacked layout — nalozi gore (skrola se), gant dolje auto-visina */}
+      {/* ======== DESKTOP CONTENT ======== */}
       <div className="hidden lg:flex lg:flex-col flex-1 min-h-0 overflow-hidden">
-        {/* Top panel — Nalozi (fills remaining space, scrolls internally) */}
         <div className="flex flex-col flex-1 min-h-0">
-          {/* Search + Filters */}
-          <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0 bg-white border-b">
-            <div className="relative flex-1">
+          {/* Search + Filters + Column Toggle */}
+          <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0 bg-white border-b border-gray-100">
+            <div className="relative w-[200px] flex-shrink-0">
               <svg
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-300 pointer-events-none"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -252,12 +280,12 @@ export default function DashboardPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Pretraži naloge..."
-                className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-2 pl-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white"
+                className="w-full text-xs border border-gray-200 rounded-md px-2.5 py-2 pl-8 focus:outline-none focus:ring-2 focus:ring-gray-900/5 focus:border-gray-300 bg-white placeholder:text-gray-300 transition-colors"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -268,37 +296,47 @@ export default function DashboardPage() {
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 rounded-lg border transition-colors ${
+              className={`p-2 rounded-md border transition-colors ${
                 showFilters || hasActiveFilters
-                  ? "bg-indigo-50 border-indigo-200 text-indigo-600"
-                  : "border-gray-200 text-gray-400 hover:text-gray-600"
+                  ? "bg-gray-900 border-gray-900 text-white"
+                  : "border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300"
               }`}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
               </svg>
-              {hasActiveFilters && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-indigo-600 rounded-full" />
-              )}
             </button>
             <span className="text-[11px] text-gray-400 tabular-nums flex-shrink-0">
               {filteredOrders.length} naloga
             </span>
+            <div className="flex-1" />
+            <ColumnToggle
+              columns={TOGGLEABLE_COLUMNS.map((col) => ({
+                id: col.id,
+                header: col.header,
+                isVisible: columnVisibility[col.id] !== false,
+                toggle: () =>
+                  setColumnVisibility((prev) => ({
+                    ...prev,
+                    [col.id]: prev[col.id] === false ? true : false,
+                  })),
+              }))}
+            />
           </div>
           {showFilters && (
-            <div className="px-3 py-2 flex flex-wrap gap-2 bg-gray-50/80 border-b flex-shrink-0">
-              <select value={filterMachine} onChange={(e) => setFilterMachine(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+            <div className="px-3 py-2 flex flex-wrap gap-2 bg-gray-50 border-b border-gray-100 flex-shrink-0">
+              <select value={filterMachine} onChange={(e) => setFilterMachine(e.target.value)} className="text-xs border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/5">
                 <option value="">Svi strojevi</option>
                 {machines.map((m) => (<option key={m.id} value={m.id}>{m.name}</option>))}
               </select>
-              <select value={filterIzvedba} onChange={(e) => setFilterIzvedba(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+              <select value={filterIzvedba} onChange={(e) => setFilterIzvedba(e.target.value)} className="text-xs border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/5">
                 <option value="">Sve izvedbe</option>
                 <option value="PLANIRAN">PLANIRAN</option>
                 <option value="U TIJEKU">U TIJEKU</option>
                 <option value="ZAVRŠEN">ZAVRŠEN</option>
               </select>
               {hasActiveFilters && (
-                <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); }} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 transition-colors">
+                <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
                   Očisti
                 </button>
               )}
@@ -311,16 +349,22 @@ export default function DashboardPage() {
               scheduled={filteredScheduled}
               onUpdate={updateOrder}
               onDelete={deleteOrder}
-              onReorder={reorderOrders}
+              hoveredOrderId={hoveredOrderId}
+              onHoverOrder={setHoveredOrderId}
+              columnVisibility={columnVisibility}
+              onColumnVisibilityChange={setColumnVisibility}
             />
           </div>
         </div>
-        {/* Bottom panel — Gant (auto height based on content, shrinks to fit) */}
         <div className="border-t border-gray-200 flex-shrink-0">
           <Timeline
             machines={machines}
             scheduled={scheduleResult.scheduled}
             ganttStartDate={ganttStartDate}
+            hoveredOrderId={hoveredOrderId}
+            onHoverOrder={setHoveredOrderId}
+            onMoveOrder={handleMoveOrder}
+            onUnpinOrder={handleUnpinOrder}
           />
         </div>
       </div>
@@ -329,10 +373,10 @@ export default function DashboardPage() {
       <div className="lg:hidden flex-1 min-h-0 overflow-hidden">
         {activeTab === "nalozi" ? (
           <div className="h-full flex flex-col">
-            <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0 bg-white border-b">
+            <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0 bg-white border-b border-gray-100">
               <div className="relative flex-1">
                 <svg
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none"
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-300 pointer-events-none"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -348,12 +392,12 @@ export default function DashboardPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Pretraži naloge..."
-                  className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-2 pl-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white"
+                  className="w-full text-xs border border-gray-200 rounded-md px-2.5 py-2 pl-8 focus:outline-none focus:ring-2 focus:ring-gray-900/5 focus:border-gray-300 bg-white placeholder:text-gray-300"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <line x1="18" y1="6" x2="6" y2="18" />
@@ -364,18 +408,15 @@ export default function DashboardPage() {
               </div>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`p-2 rounded-lg border transition-colors ${
+                className={`p-2 rounded-md border transition-colors ${
                   showFilters || hasActiveFilters
-                    ? "bg-indigo-50 border-indigo-200 text-indigo-600"
+                    ? "bg-gray-900 border-gray-900 text-white"
                     : "border-gray-200 text-gray-400 hover:text-gray-600"
                 }`}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                 </svg>
-                {hasActiveFilters && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-indigo-600 rounded-full" />
-                )}
               </button>
               <span className="text-[11px] text-gray-400 tabular-nums flex-shrink-0 hidden sm:inline">
                 {filteredOrders.length} naloga
@@ -383,19 +424,19 @@ export default function DashboardPage() {
             </div>
 
             {showFilters && (
-              <div className="px-3 py-2 flex flex-wrap gap-2 bg-gray-50/80 border-b flex-shrink-0">
-                <select value={filterMachine} onChange={(e) => setFilterMachine(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+              <div className="px-3 py-2 flex flex-wrap gap-2 bg-gray-50 border-b border-gray-100 flex-shrink-0">
+                <select value={filterMachine} onChange={(e) => setFilterMachine(e.target.value)} className="text-xs border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/5">
                   <option value="">Svi strojevi</option>
                   {machines.map((m) => (<option key={m.id} value={m.id}>{m.name}</option>))}
                 </select>
-                <select value={filterIzvedba} onChange={(e) => setFilterIzvedba(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+                <select value={filterIzvedba} onChange={(e) => setFilterIzvedba(e.target.value)} className="text-xs border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/5">
                   <option value="">Sve izvedbe</option>
                   <option value="PLANIRAN">PLANIRAN</option>
                   <option value="U TIJEKU">U TIJEKU</option>
                   <option value="ZAVRŠEN">ZAVRŠEN</option>
                 </select>
                 {hasActiveFilters && (
-                  <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); }} className="text-xs text-red-500 hover:text-red-700 px-2 py-1 transition-colors">
+                  <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
                     Očisti
                   </button>
                 )}
@@ -409,7 +450,6 @@ export default function DashboardPage() {
                 scheduled={filteredScheduled}
                 onUpdate={updateOrder}
                 onDelete={deleteOrder}
-                onReorder={reorderOrders}
               />
             </div>
           </div>
@@ -419,6 +459,8 @@ export default function DashboardPage() {
               machines={machines}
               scheduled={scheduleResult.scheduled}
               ganttStartDate={ganttStartDate}
+              onMoveOrder={handleMoveOrder}
+              onUnpinOrder={handleUnpinOrder}
             />
           </div>
         )}
@@ -430,15 +472,15 @@ export default function DashboardPage() {
       {/* ======== FAB — Add Order (mobile only) ======== */}
       <button
         onClick={() => setShowNewOrder(true)}
-        className="lg:hidden fixed z-40 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg shadow-indigo-600/30 flex items-center justify-center hover:bg-indigo-700 active:scale-95 transition-all"
+        className="lg:hidden fixed z-40 w-12 h-12 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-900/20 flex items-center justify-center hover:bg-gray-800 active:scale-95 transition-all"
         style={{
           right: 16,
           bottom: `calc(3rem + env(safe-area-inset-bottom, 0px))`,
         }}
       >
         <svg
-          width="24"
-          height="24"
+          width="20"
+          height="20"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -467,6 +509,9 @@ export default function DashboardPage() {
         onUpdate={updateMachine}
         onDelete={deleteMachine}
       />
+
+      {/* ======== Info Modal ======== */}
+      <SchedulingInfoModal open={showInfo} onClose={() => setShowInfo(false)} />
     </div>
   );
 }

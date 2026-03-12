@@ -15,8 +15,9 @@ import {
   workdayIntl,
   workdayStart,
   nextWorkday,
+  prevWorkday,
 } from "./utils";
-import { startOfDay, parseISO, isBefore, isAfter, getDay } from "date-fns";
+import { startOfDay, parseISO, isBefore, isAfter } from "date-fns";
 
 /**
  * Scheduling engine s automatskim raspoređivanjem (EDD algoritam).
@@ -48,6 +49,14 @@ export function computeSchedule(
       autoOrders.push(order);
     }
   }
+
+  // Sortiraj ručne naloge: redoslijed nalozi prvo (po redoslijedu asc), pa najraniji_pocetak nalozi
+  manualOrders.sort((a, b) => {
+    const aR = a.zeljeni_redoslijed ?? Infinity;
+    const bR = b.zeljeni_redoslijed ?? Infinity;
+    if (aR !== bR) return aR - bR;
+    return a.sort_order - b.sort_order;
+  });
 
   // 1. Rasporedi ručne naloge (postojeća logika)
   const scheduled: ScheduledOrder[] = [];
@@ -82,19 +91,57 @@ export function computeSchedule(
   return { scheduled, byMachine };
 }
 
-/** Provjerava prelazi li nalog iz petka u ponedjeljak */
-function isFridaySpanningWeekend(start: Date, durationH: number): boolean {
-  if (getDay(start) !== 5) return false; // 5 = petak
-  const startHour = start.getHours() + start.getMinutes() / 60;
-  return startHour + durationH > WORKDAY_END;
+interface TimeRange {
+  start: Date;
+  end: Date;
+}
+
+/** Osiguraj da je datum u validnom radnom vremenu */
+function toWorkTime(d: Date): Date {
+  let result = d;
+  while (isWeekend(result)) {
+    result = workdayStart(nextWorkday(result));
+  }
+  if (result.getHours() < WORKDAY_START) return workdayStart(result);
+  if (result.getHours() >= WORKDAY_END) return workdayStart(nextWorkday(result));
+  return result;
+}
+
+/** Nađi najraniji start koji ne kolidira s occupied ranges */
+function findEarliestStart(
+  earliest: Date,
+  durationH: number,
+  occupied: TimeRange[]
+): Date {
+  const sorted = [...occupied].sort(
+    (a, b) => a.start.getTime() - b.start.getTime()
+  );
+
+  let candidate = toWorkTime(earliest);
+
+  for (let attempt = 0; attempt < 500; attempt++) {
+    candidate = adjustStartForEOD(candidate, durationH);
+    candidate = toWorkTime(candidate);
+
+    const end = calculateEnd(candidate, durationH);
+
+    const conflict = sorted.find(
+      (r) => isBefore(r.start, end) && isAfter(r.end, candidate)
+    );
+
+    if (!conflict) return candidate;
+
+    // Preskoči conflict
+    candidate = toWorkTime(conflict.end);
+  }
+
+  return candidate; // fallback
 }
 
 /**
- * Automatsko raspoređivanje — Earliest Deadline First (EDD).
+ * Automatsko raspoređivanje — Earliest Deadline First (EDD) s gap-filling.
  * Nalozi bez ručnog redoslijeda/početka se raspoređuju automatski.
- *
- * Weekend optimizacija: kad nalog prelazi vikend, popuni preostale sate
- * petka manjim nalozima s iste mašine, a veliki nalog počni u ponedjeljak.
+ * Gap-aware: popunjava praznine PRIJE pinuanih naloga umjesto da sve gura iza.
  */
 function scheduleAutoOrders(
   autoOrders: WorkOrder[],
@@ -110,108 +157,40 @@ function scheduleAutoOrders(
     return a.sort_order - b.sort_order;
   });
 
-  // Za svaki stroj, nađi najkasnije vrijeme kad je zauzet (od ručnih naloga)
-  const nextAvailable = new Map<string, Date>();
+  const occupiedByMachine = new Map<string, TimeRange[]>();
   let ganttStart = workdayStart(ganttStartDate);
   while (isWeekend(ganttStart)) {
     ganttStart = workdayStart(nextWorkday(ganttStart));
   }
 
   for (const m of machines) {
-    nextAvailable.set(m.id, ganttStart);
+    occupiedByMachine.set(m.id, []);
   }
 
-  // Ažuriraj nextAvailable iz postojećih ručnih naloga
+  // Prikupi zauzete intervale iz manual naloga
   for (const item of scheduled) {
-    if (item.end && item.order.machine_id) {
-      const current = nextAvailable.get(item.order.machine_id);
-      if (current && isAfter(item.end, current)) {
-        nextAvailable.set(item.order.machine_id, item.end);
-      }
+    if (item.start && item.end && item.order.machine_id) {
+      occupiedByMachine.get(item.order.machine_id)?.push({
+        start: item.start,
+        end: item.end,
+      });
     }
   }
 
-  // Rasporedi auto-naloge s weekend optimizacijom
-  let i = 0;
-  while (i < sorted.length) {
-    const order = sorted[i];
-
+  // Rasporedi auto-naloge s gap-filling
+  for (const order of sorted) {
     if (!order.machine_id || order.trajanje_h <= 0) {
       scheduled.push(makeResult(order, null, null, "NEMA RASPOREDA"));
-      i++;
       continue;
     }
 
-    let start = nextAvailable.get(order.machine_id) ?? ganttStart;
-
-    // Osiguraj da je radni dan
-    while (isWeekend(start)) {
-      start = workdayStart(nextWorkday(start));
-    }
-
-    // Ako je start prije početka radnog dana, pomakni na 07:00
-    if (start.getHours() < WORKDAY_START) {
-      start = workdayStart(start);
-    }
-
-    // Ako je start nakon kraja radnog dana, pomakni na idući radni dan 07:00
-    if (start.getHours() >= WORKDAY_END) {
-      start = workdayStart(nextWorkday(start));
-    }
-
-    // === Weekend optimizacija ===
-    if (isFridaySpanningWeekend(start, order.trajanje_h)) {
-      const mondayStart = workdayStart(nextWorkday(start));
-      const mondayEnd = calculateEnd(mondayStart, order.trajanje_h);
-      const deadlineOk = calculateDeadline(order, mondayEnd) !== "KASNI";
-
-      if (deadlineOk) {
-        const startHour = start.getHours() + start.getMinutes() / 60;
-        let fridayHoursLeft = WORKDAY_END - startHour;
-        const toFill: number[] = []; // indeksi u sorted[]
-
-        for (let j = i + 1; j < sorted.length && fridayHoursLeft > 0; j++) {
-          const cand = sorted[j];
-          if (cand.machine_id !== order.machine_id) continue;
-          if (cand.trajanje_h <= 0) continue;
-          if (cand.trajanje_h <= fridayHoursLeft) {
-            toFill.push(j);
-            fridayHoursLeft -= cand.trajanje_h;
-          }
-        }
-
-        if (toFill.length > 0) {
-          // Rasporedi kandidate na petak
-          let fridaySlot = start;
-          const candidates = toFill.map(idx => sorted[idx]);
-
-          // Makni iz sorted[] (obrnuti redoslijed da indeksi ostanu validni)
-          for (let k = toFill.length - 1; k >= 0; k--) {
-            sorted.splice(toFill[k], 1);
-          }
-
-          for (const cand of candidates) {
-            const candEnd = calculateEnd(fridaySlot, cand.trajanje_h);
-            const candStanje = calculateDeadline(cand, candEnd);
-            scheduled.push(makeResult(cand, fridaySlot, candEnd, "OK", candStanje));
-            fridaySlot = candEnd;
-          }
-
-          // Ažuriraj nextAvailable na kraj petka (za eventualne buduće naloge)
-          nextAvailable.set(order.machine_id, fridaySlot);
-          // Veliki nalog počinje u ponedjeljak
-          start = mondayStart;
-        }
-      }
-    }
-    // === Kraj weekend optimizacije ===
-
+    const occupied = occupiedByMachine.get(order.machine_id) ?? [];
+    const start = findEarliestStart(ganttStart, order.trajanje_h, occupied);
     const end = calculateEnd(start, order.trajanje_h);
     const stanje = calculateDeadline(order, end);
 
     scheduled.push(makeResult(order, start, end, "OK", stanje));
-    nextAvailable.set(order.machine_id, end);
-    i++;
+    occupied.push({ start, end });
   }
 }
 
@@ -263,12 +242,24 @@ function scheduleManualOrder(
 
   if (hasPocetak) {
     const date = parseISO(order.najraniji_pocetak!);
-    start = workdayStart(date);
-    while (isWeekend(start)) {
-      start = workdayStart(
-        new Date(start.getTime() + 24 * 60 * 60 * 1000)
+    let earliest = workdayStart(date);
+    while (isWeekend(earliest)) {
+      earliest = workdayStart(
+        new Date(earliest.getTime() + 24 * 60 * 60 * 1000)
       );
     }
+
+    // Prikupi zauzete intervale na istom stroju iz prethodno raspoređenih naloga
+    const occupied: TimeRange[] = [];
+    if (order.machine_id) {
+      for (const prev of previouslyScheduled) {
+        if (prev.order.machine_id === order.machine_id && prev.start && prev.end) {
+          occupied.push({ start: prev.start, end: prev.end });
+        }
+      }
+    }
+
+    start = findEarliestStart(earliest, order.trajanje_h, occupied);
   } else if (hasRedoslijed) {
     const redoslijed = order.zeljeni_redoslijed!;
     if (redoslijed === 1) {
@@ -374,7 +365,11 @@ function calculateDeadline(
   const deadline = parseISO(order.rok_isporuke);
   const endDay = startOfDay(end);
   const deadlineDay = startOfDay(deadline);
-  return isAfter(endDay, deadlineDay) ? "KASNI" : "NA VRIJEME";
+  const bufferDay = startOfDay(prevWorkday(deadline));
+
+  if (isAfter(endDay, deadlineDay)) return "KASNI";
+  if (isAfter(endDay, bufferDay)) return "KRITIČNO";
+  return "NA VRIJEME";
 }
 
 function makeResult(

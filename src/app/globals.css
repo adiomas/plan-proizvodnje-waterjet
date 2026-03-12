@@ -24,10 +24,10 @@
 }
 
 /* ===== Scrollbar ===== */
-::-webkit-scrollbar { width: 4px; height: 6px; }
+::-webkit-scrollbar { width: 4px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
 
 /* ===== Global ===== */
 html {

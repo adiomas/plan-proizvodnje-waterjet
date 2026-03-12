@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { addDays, startOfDay, getDay } from "date-fns";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { addDays, startOfDay, getDay, format } from "date-fns";
 import type { Machine, ScheduledOrder } from "@/lib/types";
 import {
   formatDayDate,
@@ -15,33 +15,51 @@ interface TimelineProps {
   machines: Machine[];
   scheduled: ScheduledOrder[];
   ganttStartDate: Date;
+  hoveredOrderId?: string | null;
+  onHoverOrder?: (id: string | null) => void;
+  onMoveOrder?: (orderId: string, targetDate: string) => void;
+  onUnpinOrder?: (orderId: string) => void;
 }
 
 type ZoomLevel = "day" | "week" | "month";
 
 const TOTAL_DAYS = 183; // ~6 mjeseci
 const WORK_HOURS = WORKDAY_END - WORKDAY_START; // 8 sati
+const MIN_DRAG_PX = 5;
 
 interface BarSegment {
   left: number;
   width: number;
 }
 
+interface DragState {
+  orderId: string;
+  startX: number;
+  originalDayIdx: number;
+  isDragging: boolean; // true nakon MIN_DRAG_PX pomaka
+}
+
 export function Timeline({
   machines,
   scheduled,
   ganttStartDate,
+  hoveredOrderId,
+  onHoverOrder,
+  onMoveOrder,
+  onUnpinOrder,
 }: TimelineProps) {
-  const [zoom, setZoom] = useState<ZoomLevel>("week");
+  const [zoom, setZoom] = useState<ZoomLevel>("day");
   const [tooltip, setTooltip] = useState<{
     order: ScheduledOrder;
     x: number;
     y: number;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [dragDeltaPx, setDragDeltaPx] = useState(0);
 
   const dayWidth =
-    zoom === "day" ? WORK_HOURS * 20 : zoom === "week" ? 80 : 24;
+    zoom === "day" ? WORK_HOURS * 30 : zoom === "week" ? 120 : 36;
   const totalWidth = TOTAL_DAYS * dayWidth;
   const hourWidth = dayWidth / WORK_HOURS;
 
@@ -80,6 +98,113 @@ export function Timeline({
       scrollRef.current.scrollLeft = Math.max(0, nowOffset - 200);
     }
   };
+
+  // Snap delta piksela na dane, preskoči vikende
+  const snapDeltaToDays = useCallback(
+    (deltaPx: number, originalDayIdx: number): number => {
+      const rawDays = Math.round(deltaPx / dayWidth);
+      if (rawDays === 0) return 0;
+
+      // Pomakni se za rawDays radnih dana
+      let targetIdx = originalDayIdx;
+      let remaining = Math.abs(rawDays);
+      const direction = rawDays > 0 ? 1 : -1;
+
+      while (remaining > 0) {
+        targetIdx += direction;
+        if (targetIdx < 0 || targetIdx >= TOTAL_DAYS) break;
+        const d = addDays(ganttStartDate, targetIdx);
+        if (!isWeekend(d)) {
+          remaining--;
+        }
+      }
+
+      // Osiguraj da target nije vikend
+      while (targetIdx >= 0 && targetIdx < TOTAL_DAYS && isWeekend(addDays(ganttStartDate, targetIdx))) {
+        targetIdx += direction;
+      }
+
+      return targetIdx - originalDayIdx;
+    },
+    [dayWidth, ganttStartDate]
+  );
+
+  // Izračunaj ciljni datum iz drag statea
+  const getDragTargetDate = useCallback((): string | null => {
+    if (!dragState || !dragState.isDragging) return null;
+    const snappedDelta = snapDeltaToDays(dragDeltaPx, dragState.originalDayIdx);
+    const targetDayIdx = dragState.originalDayIdx + snappedDelta;
+    if (targetDayIdx < 0 || targetDayIdx >= TOTAL_DAYS) return null;
+    const targetDate = addDays(ganttStartDate, targetDayIdx);
+    if (isWeekend(targetDate)) return null;
+    return format(targetDate, "yyyy-MM-dd");
+  }, [dragState, dragDeltaPx, snapDeltaToDays, ganttStartDate]);
+
+  const getDragSnappedOffsetPx = useCallback((): number => {
+    if (!dragState || !dragState.isDragging) return 0;
+    const snappedDelta = snapDeltaToDays(dragDeltaPx, dragState.originalDayIdx);
+    return snappedDelta * dayWidth;
+  }, [dragState, dragDeltaPx, snapDeltaToDays, dayWidth]);
+
+  // Je li nalog draggable?
+  const canDrag = (s: ScheduledOrder): boolean => {
+    if (s.order.izvedba === "ZAVRŠEN") return false;
+    if (s.order.zeljeni_redoslijed !== null) return false;
+    return true;
+  };
+
+  // Pointer handleri
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent, s: ScheduledOrder) => {
+      if (!canDrag(s) || !onMoveOrder) return;
+      if (!s.start) return;
+
+      const dayIdx = Math.floor(
+        (startOfDay(s.start).getTime() - ganttStartMs) / msPerDay
+      );
+
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      setDragState({
+        orderId: s.order.id,
+        startX: e.clientX,
+        originalDayIdx: dayIdx,
+        isDragging: false,
+      });
+      setDragDeltaPx(0);
+    },
+    [ganttStartMs, msPerDay, onMoveOrder]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragState) return;
+      const delta = e.clientX - dragState.startX;
+
+      if (!dragState.isDragging && Math.abs(delta) > MIN_DRAG_PX) {
+        setDragState((prev) => prev ? { ...prev, isDragging: true } : null);
+        setTooltip(null); // Sakrij tooltip tokom draga
+      }
+
+      if (dragState.isDragging || Math.abs(delta) > MIN_DRAG_PX) {
+        setDragDeltaPx(delta);
+      }
+    },
+    [dragState]
+  );
+
+  const handlePointerUp = useCallback(() => {
+    if (!dragState) return;
+
+    if (dragState.isDragging && onMoveOrder) {
+      const targetDate = getDragTargetDate();
+      if (targetDate) {
+        onMoveOrder(dragState.orderId, targetDate);
+      }
+    }
+
+    setDragState(null);
+    setDragDeltaPx(0);
+  }, [dragState, onMoveOrder, getDragTargetDate]);
 
   // Izračunaj segmente trake po radnim danima (preskače vikende + noći)
   const getBarSegments = (s: ScheduledOrder): BarSegment[] => {
@@ -152,7 +277,7 @@ export function Timeline({
     return rows;
   }, [machines, scheduled]);
 
-  const ROW_HEIGHT = 36;
+  const ROW_HEIGHT = 40;
 
   // Sati za "Dan" zoom header
   const hours = useMemo(() => {
@@ -162,6 +287,10 @@ export function Timeline({
     }
     return result;
   }, []);
+
+  // Drag ghost offset (snapped to days)
+  const ghostOffset = getDragSnappedOffsetPx();
+  const dragTargetDate = getDragTargetDate();
 
   return (
     <div className="bg-white border-t flex flex-col">
@@ -353,8 +482,21 @@ export function Timeline({
                   const gaps = getWeekendGaps(segments);
                   const isOverlap = s.status === "PREKLAPANJE";
                   const barColor = isOverlap ? "#F4CCCC" : machine.color;
-                  const opacity =
+                  const isThisHovered = hoveredOrderId === s.order.id;
+                  const somethingHovered = hoveredOrderId != null;
+                  const isBeingDragged = dragState?.orderId === s.order.id && dragState.isDragging;
+                  const isPinned = s.order.najraniji_pocetak !== null;
+                  const draggable = canDrag(s);
+
+                  const baseOpacity =
                     s.order.izvedba === "ZAVRŠEN" ? 0.4 : 0.85;
+                  const opacity = isBeingDragged
+                    ? 0.4
+                    : somethingHovered
+                    ? isThisHovered
+                      ? 1
+                      : 0.25
+                    : baseOpacity;
 
                   // Ukupna širina za label
                   const totalLeft = segments[0].left;
@@ -375,43 +517,94 @@ export function Timeline({
                             top: ROW_HEIGHT / 2 - 1,
                             height: 0,
                             borderTop: `2px dashed ${machine.color}`,
-                            opacity: 0.35,
+                            opacity: somethingHovered && !isThisHovered ? 0.1 : 0.35,
                           }}
                         />
+                      ))}
+
+                      {/* Ghost preview tokom draga */}
+                      {isBeingDragged && segments.map((seg, si) => (
+                        <div
+                          key={`ghost-${si}`}
+                          className="absolute rounded-sm pointer-events-none border-2 border-dashed border-blue-400"
+                          style={{
+                            left: seg.left + ghostOffset,
+                            width: seg.width,
+                            top: 5,
+                            height: ROW_HEIGHT - 10,
+                            backgroundColor: machine.color,
+                            opacity: 0.5,
+                          }}
+                        >
+                          {si === 0 && dragTargetDate && (
+                            <span className="absolute -top-4 left-0 text-[8px] font-bold text-blue-600 bg-white px-1 rounded shadow-sm whitespace-nowrap z-30">
+                              {formatDayDate(new Date(dragTargetDate + "T00:00:00"))}
+                            </span>
+                          )}
+                        </div>
                       ))}
 
                       {/* Solid segmenti */}
                       {segments.map((seg, si) => (
                         <div
                           key={`seg-${si}`}
-                          className={`absolute rounded-sm cursor-pointer transition-opacity hover:opacity-90 ${
+                          className={`absolute rounded-sm transition-all duration-150 ${
                             isOverlap ? "border-2 border-red-500" : ""
+                          } ${isThisHovered && !isBeingDragged ? "ring-2 ring-blue-400 z-10" : ""} ${
+                            draggable && onMoveOrder ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
                           }`}
                           style={{
                             left: seg.left,
                             width: seg.width,
-                            top: 4,
-                            height: ROW_HEIGHT - 8,
+                            top: isThisHovered && !isBeingDragged ? 3 : 5,
+                            height: isThisHovered && !isBeingDragged ? ROW_HEIGHT - 6 : ROW_HEIGHT - 10,
                             backgroundColor: barColor,
                             opacity,
                           }}
-                          onMouseEnter={(e) =>
-                            setTooltip({
-                              order: s,
-                              x: e.clientX,
-                              y: e.clientY,
-                            })
-                          }
-                          onMouseLeave={() => setTooltip(null)}
+                          onPointerDown={(e) => {
+                            if (si === 0) handlePointerDown(e, s);
+                          }}
+                          onPointerMove={handlePointerMove}
+                          onPointerUp={handlePointerUp}
+                          onMouseEnter={(e) => {
+                            if (!dragState) {
+                              onHoverOrder?.(s.order.id);
+                              setTooltip({
+                                order: s,
+                                x: e.clientX,
+                                y: e.clientY,
+                              });
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            if (!dragState) {
+                              onHoverOrder?.(null);
+                              setTooltip(null);
+                            }
+                          }}
                         >
-                          {si === 0 &&
-                            totalRight - totalLeft > 40 && (
-                              <span className="text-white text-[9px] px-1 truncate block leading-[28px]">
-                                {s.order.rn_id}
-                              </span>
-                            )}
+                          {si === 0 && (
+                            <span className={`text-white text-[9px] px-1 truncate block ${isThisHovered && !isBeingDragged ? "leading-[34px]" : "leading-[30px]"}`}>
+                              {isPinned && onUnpinOrder && (
+                                <button
+                                  className="inline-flex items-center hover:bg-white/30 rounded px-0.5 -ml-0.5"
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onUnpinOrder(s.order.id);
+                                  }}
+                                  title="Otkači — vrati na automatski raspored"
+                                >
+                                  📌
+                                </button>
+                              )}
+                              {isPinned && !onUnpinOrder && "📌 "}
+                              {totalRight - totalLeft > 40 ? s.order.rn_id : ""}
+                            </span>
+                          )}
                         </div>
                       ))}
+
                     </div>
                   );
                 })}
@@ -422,12 +615,15 @@ export function Timeline({
       </div>
 
       {/* Tooltip */}
-      {tooltip && (
+      {tooltip && !dragState?.isDragging && (
         <div
           className="fixed z-50 bg-gray-900 text-white text-xs rounded shadow-lg px-3 py-2 pointer-events-none"
           style={{ left: tooltip.x + 12, top: tooltip.y - 60 }}
         >
-          <div className="font-bold">{tooltip.order.order.rn_id}</div>
+          <div className="font-bold">
+            {tooltip.order.order.najraniji_pocetak !== null && "📌 "}
+            {tooltip.order.order.rn_id}
+          </div>
           {tooltip.order.order.opis && (
             <div className="text-gray-300">
               {tooltip.order.order.opis}
@@ -449,6 +645,11 @@ export function Timeline({
           {tooltip.order.status !== "OK" && (
             <div className="text-red-300 font-bold">
               {tooltip.order.status}
+            </div>
+          )}
+          {tooltip.order.order.najraniji_pocetak !== null && (
+            <div className="text-blue-300 text-[9px] mt-0.5">
+              Ručno postavljeno • klikni 📌 za otkačivanje
             </div>
           )}
         </div>
