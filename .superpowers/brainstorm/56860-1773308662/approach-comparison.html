@@ -1,0 +1,63 @@
+<h2>Pristup generiranju PDF-a</h2>
+<p class="subtitle">Dva pristupa — oba daju isti rezultat za korisnika, razlika je u arhitekturi</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Client-side PDF (@react-pdf/renderer)</h3>
+      <p><strong>Kako radi:</strong> React komponente definiraju PDF layout → generira se u browseru → download</p>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros">
+          <h4>Prednosti</h4>
+          <ul>
+            <li>Nema server-side koda — sve u browseru</li>
+            <li>React komponente za PDF layout — poznata tehnologija</li>
+            <li>Pixel-perfect kontrola nad dizajnom</li>
+            <li>Već ima tipove za TypeScript</li>
+            <li>Profesionalan izgled bez kompromisa</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Nedostaci</h4>
+          <ul>
+            <li>~200KB bundle size (gzip)</li>
+            <li>Sporije generiranje za veliki broj naloga</li>
+            <li>Vlastiti layout engine (ne CSS)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Server-side PDF (Next.js API Route + jsPDF)</h3>
+      <p><strong>Kako radi:</strong> API route prima parametre → generira PDF na serveru → vraća file</p>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros">
+          <h4>Prednosti</h4>
+          <ul>
+            <li>Ne opterećuje browser</li>
+            <li>Može se cachirati</li>
+            <li>Manji client bundle</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Nedostaci</h4>
+          <ul>
+            <li>Potrebna API ruta + server logika</li>
+            <li>jsPDF nema React integraciju — imperativan API</li>
+            <li>Teže održavanje PDF layouta</li>
+            <li>Deployment overhead</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:24px; padding:16px; background:rgba(255,255,255,0.05); border-radius:8px; border-left:3px solid #646cff">
+  <strong>Preporuka:</strong> Pristup A (@react-pdf/renderer) — deklarativni React pristup je čišći, lakši za održavanje, i daje profesionalniji rezultat. Bundle size od ~200KB je prihvatljiv za ovu vrstu aplikacije.
+</div>

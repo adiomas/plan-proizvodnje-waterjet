@@ -1,0 +1,179 @@
+<h2>Kako konfigurirati prekovremeni / radnu subotu?</h2>
+<p class="subtitle">Odaberi pristup koji ti najbolje paše za definiranje produženog radnog vremena po stroju i danu</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Kroz Timeline (desni klik / long press)</h3>
+      <p>Klikni desnim na dan u Gantt-u za određeni stroj → pojavi se popover za unos radnog vremena</p>
+
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Timeline — Gantt prikaz</div>
+        <div class="mockup-body" style="background:#1a1a2e;color:#e0e0e0;font-family:monospace;font-size:12px;padding:0;overflow:hidden">
+          <!-- Timeline mockup -->
+          <div style="display:flex;border-bottom:1px solid #333">
+            <div style="width:100px;padding:8px;background:#222;font-weight:bold;border-right:1px solid #333">Stroj</div>
+            <div style="flex:1;display:flex">
+              <div style="flex:1;padding:6px;text-align:center;border-right:1px solid #333;font-size:10px">Pon 16.03.</div>
+              <div style="flex:1;padding:6px;text-align:center;border-right:1px solid #333;font-size:10px">Uto 17.03.</div>
+              <div style="flex:1;padding:6px;text-align:center;border-right:1px solid #333;font-size:10px">Sri 18.03.</div>
+              <div style="flex:1;padding:6px;text-align:center;border-right:1px solid #333;font-size:10px;background:#2a1a3a">Sub 21.03.</div>
+            </div>
+          </div>
+          <!-- Arpel row -->
+          <div style="display:flex;border-bottom:1px solid #333">
+            <div style="width:100px;padding:8px;background:#1a3a1a;border-right:1px solid #333;font-size:11px">🟢 Arpel</div>
+            <div style="flex:1;display:flex">
+              <div style="flex:1;padding:6px;border-right:1px solid #333"><div style="background:#6AA84F;border-radius:3px;padding:2px 4px;font-size:9px">RN-045</div></div>
+              <div style="flex:1;padding:6px;border-right:1px solid #333"><div style="background:#6AA84F;border-radius:3px;padding:2px 4px;font-size:9px">RN-045</div></div>
+              <div style="flex:1;padding:6px;border-right:1px solid #333"></div>
+              <div style="flex:1;padding:6px;border-right:1px solid #333;background:repeating-linear-gradient(45deg,transparent,transparent 3px,#333 3px,#333 4px)"></div>
+            </div>
+          </div>
+          <!-- Classica row with popover -->
+          <div style="display:flex;border-bottom:1px solid #333;position:relative">
+            <div style="width:100px;padding:8px;background:#1a2a3a;border-right:1px solid #333;font-size:11px">🔵 Classica</div>
+            <div style="flex:1;display:flex">
+              <div style="flex:1;padding:6px;border-right:1px solid #333"><div style="background:#3D85C6;border-radius:3px;padding:2px 4px;font-size:9px">RN-032</div></div>
+              <div style="flex:1;padding:6px;border-right:1px solid #333"><div style="background:#3D85C6;border-radius:3px;padding:2px 4px;font-size:9px">RN-033</div></div>
+              <div style="flex:1;padding:6px;border-right:1px solid #333;outline:2px dashed #FFD700;outline-offset:-2px">
+                <div style="font-size:9px;color:#FFD700">⚡ 07-19h</div>
+              </div>
+              <div style="flex:1;padding:6px;border-right:1px solid #333;position:relative">
+                <!-- Popover -->
+                <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#2a2a4a;border:1px solid #FFD700;border-radius:8px;padding:10px;width:180px;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.5)">
+                  <div style="font-size:10px;font-weight:bold;color:#FFD700;margin-bottom:6px">⚙️ Classica — Sub 21.03.</div>
+                  <div style="font-size:9px;margin-bottom:4px">Radno vrijeme:</div>
+                  <div style="display:flex;gap:4px;margin-bottom:6px">
+                    <div style="background:#333;border:1px solid #555;border-radius:3px;padding:2px 6px;font-size:10px">07:00</div>
+                    <span style="font-size:10px">—</span>
+                    <div style="background:#333;border:1px solid #FFD700;border-radius:3px;padding:2px 6px;font-size:10px;color:#FFD700">13:00</div>
+                  </div>
+                  <div style="display:flex;gap:4px">
+                    <div style="background:#333;border-radius:3px;padding:2px 8px;font-size:9px;cursor:pointer">Odustani</div>
+                    <div style="background:#FFD700;color:#000;border-radius:3px;padding:2px 8px;font-size:9px;font-weight:bold;cursor:pointer">Spremi</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pro</h4><ul><li>Brz unos — klikni gdje trebaš</li><li>Vizualno vidiš odmah na Gantt-u</li></ul></div>
+        <div class="cons"><h4>Contra</h4><ul><li>Nema pregleda svih overridea na jednom mjestu</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Zasebni Modal — "Radno vrijeme"</h3>
+      <p>Gumb u headeru otvara modal s listom svih overridea, kalendarski prikaz po strojevima</p>
+
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Modal — Upravljanje radnim vremenom</div>
+        <div class="mockup-body" style="background:#fff;color:#333;font-family:system-ui;font-size:12px;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div style="font-size:14px;font-weight:bold">⏰ Posebno radno vrijeme</div>
+            <div style="background:#3D85C6;color:white;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer">+ Dodaj</div>
+          </div>
+
+          <!-- Table -->
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead>
+              <tr style="background:#f5f5f5;text-align:left">
+                <th style="padding:6px;border-bottom:2px solid #ddd">Stroj</th>
+                <th style="padding:6px;border-bottom:2px solid #ddd">Datum</th>
+                <th style="padding:6px;border-bottom:2px solid #ddd">Od</th>
+                <th style="padding:6px;border-bottom:2px solid #ddd">Do</th>
+                <th style="padding:6px;border-bottom:2px solid #ddd">Sati</th>
+                <th style="padding:6px;border-bottom:2px solid #ddd">Tip</th>
+                <th style="padding:6px;border-bottom:2px solid #ddd"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid #eee">
+                <td style="padding:6px"><span style="display:inline-block;width:8px;height:8px;background:#3D85C6;border-radius:50%;margin-right:4px"></span>Classica</td>
+                <td style="padding:6px">Sri 18.03.2026</td>
+                <td style="padding:6px">07:00</td>
+                <td style="padding:6px;color:#e67e22;font-weight:bold">19:00</td>
+                <td style="padding:6px">12h</td>
+                <td style="padding:6px"><span style="background:#FFF3CD;color:#856404;padding:1px 6px;border-radius:10px;font-size:10px">Prekovremeni</span></td>
+                <td style="padding:6px;color:#e74c3c;cursor:pointer">✕</td>
+              </tr>
+              <tr style="border-bottom:1px solid #eee;background:#fafafa">
+                <td style="padding:6px"><span style="display:inline-block;width:8px;height:8px;background:#3D85C6;border-radius:50%;margin-right:4px"></span>Classica</td>
+                <td style="padding:6px;color:#7B1FA2;font-weight:bold">Sub 21.03.2026</td>
+                <td style="padding:6px">07:00</td>
+                <td style="padding:6px;color:#7B1FA2;font-weight:bold">13:00</td>
+                <td style="padding:6px">6h</td>
+                <td style="padding:6px"><span style="background:#E8D5F5;color:#7B1FA2;padding:1px 6px;border-radius:10px;font-size:10px">Radna subota</span></td>
+                <td style="padding:6px;color:#e74c3c;cursor:pointer">✕</td>
+              </tr>
+              <tr style="border-bottom:1px solid #eee">
+                <td style="padding:6px"><span style="display:inline-block;width:8px;height:8px;background:#6AA84F;border-radius:50%;margin-right:4px"></span>Arpel</td>
+                <td style="padding:6px;color:#7B1FA2;font-weight:bold">Sub 21.03.2026</td>
+                <td style="padding:6px">07:00</td>
+                <td style="padding:6px;color:#7B1FA2;font-weight:bold">11:00</td>
+                <td style="padding:6px">4h</td>
+                <td style="padding:6px"><span style="background:#E8D5F5;color:#7B1FA2;padding:1px 6px;border-radius:10px;font-size:10px">Radna subota</span></td>
+                <td style="padding:6px;color:#e74c3c;cursor:pointer">✕</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pro</h4><ul><li>Pregled svih overridea na jednom mjestu</li><li>Lakše upravljanje (dodaj/briši/uredi)</li></ul></div>
+        <div class="cons"><h4>Contra</h4><ul><li>Treba otvoriti modal, odabrati stroj i datum — više koraka</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hibrid — Timeline + Modal pregled</h3>
+      <p>Brzi unos kroz Timeline (desni klik) + gumb "⏰ Radno vrijeme" za pregled i upravljanje svim overrideima</p>
+
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Oba pristupa zajedno</div>
+        <div class="mockup-body" style="background:#f8f8f8;padding:12px;font-family:system-ui;font-size:12px">
+          <div style="display:flex;gap:12px">
+            <!-- Left: Timeline -->
+            <div style="flex:1;background:#1a1a2e;border-radius:6px;padding:8px;color:#e0e0e0">
+              <div style="font-size:10px;color:#888;margin-bottom:6px">GANTT TIMELINE</div>
+              <div style="display:flex;gap:2px;margin-bottom:4px">
+                <div style="width:50px;font-size:8px;padding:2px">Classica</div>
+                <div style="flex:1;background:#3D85C6;border-radius:2px;padding:2px;font-size:8px">RN-032</div>
+                <div style="flex:1;outline:2px dashed #FFD700;outline-offset:-1px;border-radius:2px;padding:2px;font-size:8px;color:#FFD700">⚡19h</div>
+                <div style="flex:1;background:#2a1a3a;border-radius:2px;padding:2px;font-size:8px;text-align:center">Sub ✓</div>
+              </div>
+              <div style="font-size:9px;color:#FFD700;text-align:center;margin-top:4px">Desni klik → brzi unos</div>
+            </div>
+            <!-- Right: Modal button -->
+            <div style="flex:1;background:#fff;border-radius:6px;padding:8px;color:#333">
+              <div style="font-size:10px;color:#888;margin-bottom:6px">HEADER GUMB</div>
+              <div style="background:#f0f0f0;border-radius:6px;padding:8px;text-align:center;margin-bottom:6px">
+                <div style="font-size:20px;margin-bottom:2px">⏰</div>
+                <div style="font-size:10px;font-weight:bold">Radno vrijeme</div>
+                <div style="font-size:9px;color:#666">3 overridea aktivna</div>
+              </div>
+              <div style="font-size:9px;color:#666;text-align:center">Otvori modal → pregled + uredi sve</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pro</h4><ul><li>Najbolje od oba svijeta</li><li>Brzi unos + potpuni pregled</li><li>Timeline vizualno pokazuje overridee</li></ul></div>
+        <div class="cons"><h4>Contra</h4><ul><li>Više posla za implementaciju</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

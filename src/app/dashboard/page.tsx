@@ -205,7 +205,7 @@ export default function DashboardPage() {
           </button>
           {/* Export PDF */}
           <div className="hidden lg:block">
-            <ExportMenu machines={machines} scheduled={scheduleResult.scheduled} />
+            <ExportMenu machines={machines} scheduled={scheduleResult.scheduled} overrides={overrides} />
           </div>
           {/* Desktop: Novi nalog button */}
           <button

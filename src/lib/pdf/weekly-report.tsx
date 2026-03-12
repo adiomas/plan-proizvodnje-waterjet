@@ -1,7 +1,7 @@
 import { Document, Page, View, Text } from "@react-pdf/renderer";
 import { addDays } from "date-fns";
-import type { Machine, ScheduledOrder } from "../types";
-import { HOURS_PER_DAY } from "../utils";
+import type { Machine, MachineOverride, ScheduledOrder } from "../types";
+import { getWorkingHours } from "../utils";
 import { PAGE_PROPS, s, WEEKLY_COLS } from "./styles";
 import {
   getWeekSegments,
@@ -19,9 +19,10 @@ interface Props {
   machines: Machine[];
   orders: ScheduledOrder[];
   weekStart: Date; // ponedjeljak
+  overrides: MachineOverride[];
 }
 
-export function WeeklyReport({ machine, machines, orders, weekStart }: Props) {
+export function WeeklyReport({ machine, machines, orders, weekStart, overrides }: Props) {
   const targetMachines = machine ? [machine] : machines;
 
   return (
@@ -32,6 +33,7 @@ export function WeeklyReport({ machine, machines, orders, weekStart }: Props) {
           machine={m}
           orders={orders}
           weekStart={weekStart}
+          overrides={overrides}
         />
       ))}
     </Document>
@@ -42,10 +44,12 @@ function WeeklyPage({
   machine,
   orders,
   weekStart,
+  overrides,
 }: {
   machine: Machine;
   orders: ScheduledOrder[];
   weekStart: Date;
+  overrides: MachineOverride[];
 }) {
   const weekEnd = addDays(weekStart, 4); // petak
   const daySegments = getWeekSegments(orders, weekStart, machine.id);
@@ -63,8 +67,14 @@ function WeeklyPage({
   }
   totalOrders = uniqueOrderIds.size;
   totalH = Math.round(totalH * 10) / 10;
-  const workdays = 5;
-  const capacity = workdays * HOURS_PER_DAY;
+
+  // Izračunaj kapacitet na osnovu stvarnog radnog vremena (uključujući overridee)
+  let capacity = 0;
+  for (let i = 0; i < 7; i++) {
+    const day = addDays(weekStart, i);
+    const wh = getWorkingHours(machine.id, day, overrides);
+    if (wh) capacity += wh.hours;
+  }
   const util = capacity > 0 ? Math.round((totalH / capacity) * 1000) / 10 : 0;
 
   const hasAnyOrders = totalOrders > 0;

@@ -1,0 +1,188 @@
+<h2>Mockup: Kako će PDF dokumenti izgledati</h2>
+<p class="subtitle">Dnevni i tjedni prikaz — za print na A4 papiru</p>
+
+<div class="cards">
+  <!-- DNEVNI PDF -->
+  <div class="card" data-choice="daily" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#fff; padding:20px; border-radius:4px;">
+      <!-- A4 mockup -->
+      <div style="font-family: 'Inter', -apple-system, sans-serif; color:#1a1a1a; font-size:11px; line-height:1.4;">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1a1a1a; padding-bottom:8px; margin-bottom:12px;">
+          <div>
+            <div style="font-size:16px; font-weight:700; color:#1a1a1a;">DNEVNI PLAN PROIZVODNJE</div>
+            <div style="font-size:12px; color:#666; margin-top:2px;">Stroj: <strong style="color:#6AA84F;">Arpel</strong></div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:13px; font-weight:600;">Četvrtak, 12.03.2026.</div>
+            <div style="font-size:10px; color:#888;">Radno vrijeme: 07:00 - 15:00</div>
+            <div style="font-size:9px; color:#aaa; margin-top:2px;">Generirano: 12.03.2026. 08:15</div>
+          </div>
+        </div>
+
+        <!-- Summary bar -->
+        <div style="display:flex; gap:12px; margin-bottom:14px; padding:8px 10px; background:#f4f7f4; border-radius:4px; font-size:10px;">
+          <div><strong>Ukupno naloga:</strong> 3</div>
+          <div><strong>Ukupno sati:</strong> 7.5h / 8h</div>
+          <div style="color:#6AA84F;"><strong>Iskorištenost:</strong> 93.7%</div>
+        </div>
+
+        <!-- Order 1 -->
+        <div style="border:1px solid #e0e0e0; border-left:3px solid #6AA84F; border-radius:4px; padding:10px 12px; margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:13px; font-weight:700; color:#1a1a1a;">RN-045</span>
+              <span style="font-size:9px; padding:2px 6px; background:#e8f5e9; color:#2e7d32; border-radius:3px; font-weight:500;">NA VRIJEME</span>
+            </div>
+            <div style="font-size:11px; font-weight:600; color:#333;">07:00 — 10:30</div>
+          </div>
+          <div style="font-size:11px; color:#333; margin-bottom:4px;"><strong>Opis:</strong> Rezanje inox ploča 2mm — set A</div>
+          <div style="font-size:10px; color:#666; margin-bottom:4px;"><strong>Napomena:</strong> Koristiti program #12, paziti na rubove</div>
+          <div style="display:flex; gap:16px; font-size:10px; color:#888;">
+            <span><strong>Trajanje:</strong> 3.5h</span>
+            <span><strong>Rok:</strong> 14.03.2026.</span>
+          </div>
+        </div>
+
+        <!-- Order 2 -->
+        <div style="border:1px solid #e0e0e0; border-left:3px solid #6AA84F; border-radius:4px; padding:10px 12px; margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:13px; font-weight:700; color:#1a1a1a;">RN-046</span>
+              <span style="font-size:9px; padding:2px 6px; background:#fff3e0; color:#e65100; border-radius:3px; font-weight:500;">KRITIČNO</span>
+            </div>
+            <div style="font-size:11px; font-weight:600; color:#333;">10:30 — 13:00</div>
+          </div>
+          <div style="font-size:11px; color:#333; margin-bottom:4px;"><strong>Opis:</strong> Aluminij profili 5mm — narudžba Petković</div>
+          <div style="font-size:10px; color:#666; margin-bottom:4px;"><strong>Napomena:</strong> Hitno! Kupac dolazi po materijal sutra ujutro</div>
+          <div style="display:flex; gap:16px; font-size:10px; color:#888;">
+            <span><strong>Trajanje:</strong> 2.5h</span>
+            <span><strong>Rok:</strong> 13.03.2026.</span>
+          </div>
+        </div>
+
+        <!-- Order 3 -->
+        <div style="border:1px solid #e0e0e0; border-left:3px solid #6AA84F; border-radius:4px; padding:10px 12px; margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:13px; font-weight:700; color:#1a1a1a;">RN-047</span>
+              <span style="font-size:9px; padding:2px 6px; background:#e8f5e9; color:#2e7d32; border-radius:3px; font-weight:500;">NA VRIJEME</span>
+            </div>
+            <div style="font-size:11px; font-weight:600; color:#333;">13:00 — 14:30</div>
+          </div>
+          <div style="font-size:11px; color:#333; margin-bottom:4px;"><strong>Opis:</strong> Čelični limovi 3mm — serija B</div>
+          <div style="font-size:10px; color:#666; margin-bottom:4px;"><strong>Napomena:</strong> —</div>
+          <div style="display:flex; gap:16px; font-size:10px; color:#888;">
+            <span><strong>Trajanje:</strong> 1.5h</span>
+            <span><strong>Rok:</strong> 20.03.2026.</span>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="margin-top:12px; padding-top:8px; border-top:1px solid #e0e0e0; display:flex; justify-content:space-between; font-size:9px; color:#aaa;">
+          <span>Plan Proizvodnje — Waterjet</span>
+          <span>Stranica 1/1</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Dnevni PDF</h3>
+      <p>Jedan dan, jedan stroj — kronološki poredani nalozi sa satnicom, opisom, napomenom, rokom i statusom.</p>
+    </div>
+  </div>
+
+  <!-- TJEDNI PDF -->
+  <div class="card" data-choice="weekly" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#fff; padding:20px; border-radius:4px;">
+      <div style="font-family: 'Inter', -apple-system, sans-serif; color:#1a1a1a; font-size:11px; line-height:1.4;">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1a1a1a; padding-bottom:8px; margin-bottom:12px;">
+          <div>
+            <div style="font-size:16px; font-weight:700; color:#1a1a1a;">TJEDNI PLAN PROIZVODNJE</div>
+            <div style="font-size:12px; color:#666; margin-top:2px;">Stroj: <strong style="color:#3D85C6;">Classica</strong></div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:13px; font-weight:600;">09.03. — 13.03.2026.</div>
+            <div style="font-size:10px; color:#888;">Tjedan 11</div>
+            <div style="font-size:9px; color:#aaa; margin-top:2px;">Generirano: 08.03.2026. 14:00</div>
+          </div>
+        </div>
+
+        <!-- Week summary -->
+        <div style="display:flex; gap:12px; margin-bottom:14px; padding:8px 10px; background:#edf2fa; border-radius:4px; font-size:10px;">
+          <div><strong>Ukupno naloga:</strong> 7</div>
+          <div><strong>Ukupno sati:</strong> 36h / 40h</div>
+          <div style="color:#3D85C6;"><strong>Iskorištenost:</strong> 90%</div>
+        </div>
+
+        <!-- Ponedjeljak -->
+        <div style="margin-bottom:10px;">
+          <div style="font-size:11px; font-weight:700; color:#3D85C6; padding:4px 0; border-bottom:1px solid #dce6f2; margin-bottom:6px;">
+            📅 PONEDJELJAK, 09.03.
+          </div>
+          <div style="padding-left:4px;">
+            <div style="display:flex; justify-content:space-between; padding:4px 8px; background:#f8f9fa; border-radius:3px; margin-bottom:3px; border-left:2px solid #3D85C6;">
+              <div><strong>RN-050</strong> · Granitne ploče 4mm — Horvat d.o.o.</div>
+              <div style="font-weight:600; white-space:nowrap;">07:00-12:00 (5h)</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:4px 8px; background:#f8f9fa; border-radius:3px; margin-bottom:3px; border-left:2px solid #3D85C6;">
+              <div><strong>RN-051</strong> · Mramor rezanje — set C</div>
+              <div style="font-weight:600; white-space:nowrap;">12:00-15:00 (3h)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Utorak -->
+        <div style="margin-bottom:10px;">
+          <div style="font-size:11px; font-weight:700; color:#3D85C6; padding:4px 0; border-bottom:1px solid #dce6f2; margin-bottom:6px;">
+            📅 UTORAK, 10.03.
+          </div>
+          <div style="padding-left:4px;">
+            <div style="display:flex; justify-content:space-between; padding:4px 8px; background:#f8f9fa; border-radius:3px; margin-bottom:3px; border-left:2px solid #3D85C6;">
+              <div><strong>RN-051</strong> · Mramor rezanje — set C <span style="font-size:9px; color:#888;">(nastavak)</span></div>
+              <div style="font-weight:600; white-space:nowrap;">07:00-09:00 (2h)</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:4px 8px; background:#f8f9fa; border-radius:3px; margin-bottom:3px; border-left:2px solid #3D85C6;">
+              <div><strong>RN-052</strong> · Keramika 6mm — velika serija</div>
+              <div style="font-weight:600; white-space:nowrap;">09:00-15:00 (6h)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Srijeda -->
+        <div style="margin-bottom:10px;">
+          <div style="font-size:11px; font-weight:700; color:#3D85C6; padding:4px 0; border-bottom:1px solid #dce6f2; margin-bottom:6px;">
+            📅 SRIJEDA, 11.03.
+          </div>
+          <div style="padding-left:4px;">
+            <div style="display:flex; justify-content:space-between; padding:4px 8px; background:#f8f9fa; border-radius:3px; margin-bottom:3px; border-left:2px solid #3D85C6;">
+              <div><strong>RN-052</strong> · Keramika 6mm — velika serija <span style="font-size:9px; color:#888;">(nastavak)</span></div>
+              <div style="font-weight:600; white-space:nowrap;">07:00-11:00 (4h)</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:4px 8px; background:#fff3e0; border-radius:3px; margin-bottom:3px; border-left:2px solid #e65100;">
+              <div><strong>RN-053</strong> · Hitni rez — popravak <span style="font-size:9px; padding:1px 4px; background:#fff3e0; color:#e65100; border-radius:2px;">KRITIČNO</span></div>
+              <div style="font-weight:600; white-space:nowrap;">11:00-15:00 (4h)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ... -->
+        <div style="text-align:center; color:#aaa; font-size:10px; padding:4px 0;">— Četvrtak, Petak — (nastavak na sljedećoj stranici) —</div>
+
+        <!-- Footer -->
+        <div style="margin-top:10px; padding-top:8px; border-top:1px solid #e0e0e0; display:flex; justify-content:space-between; font-size:9px; color:#aaa;">
+          <span>Plan Proizvodnje — Waterjet</span>
+          <span>Stranica 1/2</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Tjedni PDF</h3>
+      <p>Cijeli tjedan, jedan stroj — nalozi grupirani po danu, kompaktni red s ključnim info. Višednevni nalozi označeni "(nastavak)".</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:20px; padding:14px; background:rgba(255,255,255,0.05); border-radius:8px; border-left:3px solid #646cff;">
+  <strong>Napomena:</strong> Dnevni PDF prikazuje više detalja po nalogu (napomenu, rok). Tjedni je kompaktniji — fokus na pregled cijelog tjedna. Oba su A4 portrait, optimizirana za print.
+</div>

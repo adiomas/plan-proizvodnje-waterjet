@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { startOfDay } from "date-fns";
-import type { Machine, ScheduledOrder } from "@/lib/types";
+import type { Machine, MachineOverride, ScheduledOrder } from "@/lib/types";
 import {
   downloadDailyPDF,
   downloadWeeklyPDF,
@@ -12,11 +12,12 @@ import {
 interface Props {
   machines: Machine[];
   scheduled: ScheduledOrder[];
+  overrides?: MachineOverride[];
 }
 
 type ReportType = "daily" | "weekly";
 
-export function ExportMenu({ machines, scheduled }: Props) {
+export function ExportMenu({ machines, scheduled, overrides = [] }: Props) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<ReportType>("daily");
   const [machineId, setMachineId] = useState<string>("all");
@@ -49,10 +50,10 @@ export function ExportMenu({ machines, scheduled }: Props) {
       const targetDate = startOfDay(new Date(date + "T00:00:00"));
 
       if (type === "daily") {
-        await downloadDailyPDF(machine, machines, scheduled, targetDate);
+        await downloadDailyPDF(machine, machines, scheduled, targetDate, overrides);
       } else {
         const monday = getMonday(targetDate);
-        await downloadWeeklyPDF(machine, machines, scheduled, monday);
+        await downloadWeeklyPDF(machine, machines, scheduled, monday, overrides);
       }
     } catch (err) {
       console.error("PDF export failed:", err);

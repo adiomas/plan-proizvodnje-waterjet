@@ -1,6 +1,6 @@
 import { Document, Page, View, Text } from "@react-pdf/renderer";
-import type { Machine, ScheduledOrder } from "../types";
-import { HOURS_PER_DAY } from "../utils";
+import type { Machine, MachineOverride, ScheduledOrder } from "../types";
+import { HOURS_PER_DAY, getWorkingHours } from "../utils";
 import { PAGE_PROPS, s, DAILY_COLS } from "./styles";
 import {
   getOrdersForDate,
@@ -18,9 +18,10 @@ interface Props {
   machines: Machine[];
   orders: ScheduledOrder[];
   date: Date;
+  overrides: MachineOverride[];
 }
 
-export function DailyReport({ machine, machines, orders, date }: Props) {
+export function DailyReport({ machine, machines, orders, date, overrides }: Props) {
   const targetMachines = machine ? [machine] : machines;
 
   return (
@@ -31,6 +32,7 @@ export function DailyReport({ machine, machines, orders, date }: Props) {
           machine={m}
           orders={orders}
           date={date}
+          overrides={overrides}
         />
       ))}
     </Document>
@@ -41,10 +43,12 @@ function DailyPage({
   machine,
   orders,
   date,
+  overrides,
 }: {
   machine: Machine;
   orders: ScheduledOrder[];
   date: Date;
+  overrides: MachineOverride[];
 }) {
   const dayOrders = getOrdersForDate(orders, date, machine.id);
 
@@ -60,7 +64,14 @@ function DailyPage({
   segments.sort((a, b) => a.dayStart.getTime() - b.dayStart.getTime());
 
   const totalH = Math.round(segments.reduce((sum, seg) => sum + seg.hours, 0) * 10) / 10;
-  const util = HOURS_PER_DAY > 0 ? Math.round((totalH / HOURS_PER_DAY) * 1000) / 10 : 0;
+
+  // Dohvati radno vrijeme za taj dan
+  const wh = getWorkingHours(machine.id, date, overrides);
+  const workHours = wh ? wh.hours : HOURS_PER_DAY;
+  const workStart = wh ? `${String(Math.floor(wh.start)).padStart(2, "0")}:${String(Math.round((wh.start % 1) * 60)).padStart(2, "0")}` : "07:00";
+  const workEnd = wh ? `${String(Math.floor(wh.end)).padStart(2, "0")}:${String(Math.round((wh.end % 1) * 60)).padStart(2, "0")}` : "15:00";
+
+  const util = workHours > 0 ? Math.round((totalH / workHours) * 1000) / 10 : 0;
   const now = new Date();
 
   return (
@@ -77,9 +88,9 @@ function DailyPage({
         <Text style={s.metaText}>
           DATUM: {dayNameFull(date)}, {formatDate(date)}
         </Text>
-        <Text style={s.metaText}>SMJENA: 07:00 — 15:00</Text>
+        <Text style={s.metaText}>SMJENA: {workStart} — {workEnd}</Text>
         <Text style={s.metaRight}>
-          NALOGA: {segments.length} | SATI: {totalH}h / {HOURS_PER_DAY}h ({util}%)
+          NALOGA: {segments.length} | SATI: {totalH}h / {workHours}h ({util}%)
         </Text>
       </View>
 

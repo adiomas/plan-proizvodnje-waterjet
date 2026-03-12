@@ -109,11 +109,8 @@ export function splitOrderByDay(order: ScheduledOrder): DaySegment[] {
   const endDay = startOfDay(order.end);
 
   while (isBefore(current, endDay) || isSameDay(current, endDay)) {
-    if (isWeekend(current)) {
-      current = addDays(current, 1);
-      continue;
-    }
-
+    // Ne preskačemo vikende jer je scheduler već postavio naloge na radne dane.
+    // Ako nalog obuhvaća subotu, to je jer je subota radni dan s overridom.
     const isFirstDay = isSameDay(current, startOfDay(order.start));
     const isLastDay = isSameDay(current, endDay);
 
@@ -153,13 +150,14 @@ export function getWeekSegments(
 ): Map<string, DaySegment[]> {
   const result = new Map<string, DaySegment[]>();
 
-  for (let i = 0; i < 5; i++) {
+  // Uključi svih 7 dana (pon-ned) da bi uhvatio overridane subote
+  for (let i = 0; i < 7; i++) {
     const day = addDays(weekStart, i);
     const key = toLocalDateKey(day);
     result.set(key, []);
   }
 
-  const weekEnd = addDays(weekStart, 4);
+  const weekEnd = addDays(weekStart, 6); // Nedjelja
   const relevantOrders = orders.filter((o) => {
     if (o.order.machine_id !== machineId) return false;
     if (!o.start || !o.end) return false;

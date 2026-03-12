@@ -1,0 +1,155 @@
+<h2>Finalni dizajn tablice naloga</h2>
+<p class="subtitle">Subtle Blue-Gray paleta + sortiranje + badge stilovi + hover highlight + toggle stupaca</p>
+
+<div class="mockup">
+  <div class="mockup-header">Dashboard — Desktop View</div>
+  <div class="mockup-body" style="padding:0; background:#fff; overflow:hidden;">
+    <!-- Toolbar -->
+    <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid #eaecf0; background:#fff;">
+      <!-- Search -->
+      <div style="flex:1; position:relative;">
+        <input type="text" placeholder="Pretraži naloge..." style="width:100%; font-size:12px; border:1px solid #d0d5dd; border-radius:6px; padding:7px 10px 7px 30px; background:#fff; color:#344054; outline:none;" />
+        <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#98a2b3; font-size:11px;">🔍</span>
+      </div>
+      <!-- Column toggle button -->
+      <button style="font-size:11px; border:1px solid #d0d5dd; border-radius:6px; padding:6px 10px; background:#fff; color:#475467; cursor:pointer; display:flex; align-items:center; gap:4px;">
+        <span style="font-size:13px;">⊞</span> Stupci
+      </button>
+      <!-- Filter -->
+      <button style="font-size:11px; border:1px solid #d0d5dd; border-radius:6px; padding:6px 10px; background:#fff; color:#475467; cursor:pointer;">⏚ Filteri</button>
+      <span style="font-size:11px; color:#98a2b3;">14 naloga</span>
+    </div>
+
+    <!-- Table -->
+    <table style="width:100%; border-collapse:collapse; font-family:'DM Sans',system-ui,sans-serif; font-size:12px;">
+      <thead>
+        <tr style="background:#f0f4f8; border-bottom:2px solid #d0d5dd;">
+          <th style="padding:9px 12px; text-align:left; color:#344054; font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; user-select:none; white-space:nowrap;">
+            RN ID <span style="color:#98a2b3; font-size:9px;">▼</span>
+          </th>
+          <th style="padding:9px 12px; text-align:left; color:#344054; font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; user-select:none;">
+            OPIS
+          </th>
+          <th style="padding:9px 12px; text-align:left; color:#344054; font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; user-select:none;">
+            ROK <span style="color:#98a2b3; font-size:9px;">▲</span>
+          </th>
+          <th style="padding:9px 12px; text-align:left; color:#344054; font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; user-select:none;">
+            STROJ
+          </th>
+          <th style="padding:9px 12px; text-align:right; color:#344054; font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; user-select:none;">
+            TRAJANJE
+          </th>
+          <th style="padding:9px 12px; text-align:left; color:#344054; font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px;">
+            POČETAK
+          </th>
+          <th style="padding:9px 12px; text-align:left; color:#344054; font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px;">
+            KRAJ
+          </th>
+          <th style="padding:9px 12px; text-align:center; color:#344054; font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px;">
+            STATUS
+          </th>
+          <th style="padding:9px 12px; text-align:center; color:#344054; font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px;">
+            STANJE
+          </th>
+          <th style="padding:9px 12px; text-align:center; color:#344054; font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px;">
+            IZVEDBA
+          </th>
+          <th style="padding:9px 12px; width:30px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Normal row -->
+        <tr style="background:#ffffff; border-bottom:1px solid #eaecf0;">
+          <td style="padding:8px 12px; color:#101828; font-weight:500;">343</td>
+          <td style="padding:8px 12px; color:#475467;">—</td>
+          <td style="padding:8px 12px; color:#475467;">2026-03-26</td>
+          <td style="padding:8px 12px; color:#475467;">Arpel</td>
+          <td style="padding:8px 12px; color:#475467; text-align:right; font-variant-numeric:tabular-nums;">1h</td>
+          <td style="padding:8px 12px; color:#475467; font-variant-numeric:tabular-nums; font-size:11px;">pon 16.03. 13:00</td>
+          <td style="padding:8px 12px; color:#475467; font-variant-numeric:tabular-nums; font-size:11px;">pon 16.03. 14:00</td>
+          <td style="padding:8px 12px; text-align:center;"><span style="display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:10px; background:#ecfdf5; color:#059669;">OK</span></td>
+          <td style="padding:8px 12px; text-align:center;"><span style="display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:10px; background:#eff8ff; color:#1d4ed8;">NA VRIJEME</span></td>
+          <td style="padding:8px 12px; text-align:center;"><span style="font-size:10px; color:#475467;">PLANIRAN</span></td>
+          <td style="padding:8px 12px; text-align:center; color:#d0d5dd;">✕</td>
+        </tr>
+        <!-- Zebra stripe row -->
+        <tr style="background:#f9fafb; border-bottom:1px solid #eaecf0;">
+          <td style="padding:8px 12px; color:#101828; font-weight:500;">88798</td>
+          <td style="padding:8px 12px; color:#475467;">—</td>
+          <td style="padding:8px 12px; color:#475467;">2026-03-14</td>
+          <td style="padding:8px 12px; color:#475467;">Arpel</td>
+          <td style="padding:8px 12px; color:#475467; text-align:right; font-variant-numeric:tabular-nums;">7h</td>
+          <td style="padding:8px 12px; color:#475467; font-variant-numeric:tabular-nums; font-size:11px;">čet 12.03. 09:00</td>
+          <td style="padding:8px 12px; color:#475467; font-variant-numeric:tabular-nums; font-size:11px;">pet 13.03. 08:00</td>
+          <td style="padding:8px 12px; text-align:center;"><span style="display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:10px; background:#ecfdf5; color:#059669;">OK</span></td>
+          <td style="padding:8px 12px; text-align:center;"><span style="display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:10px; background:#eff8ff; color:#1d4ed8;">NA VRIJEME</span></td>
+          <td style="padding:8px 12px; text-align:center;"><span style="font-size:10px; color:#475467;">PLANIRAN</span></td>
+          <td style="padding:8px 12px; text-align:center; color:#d0d5dd;">✕</td>
+        </tr>
+        <!-- HOVERED ROW — shows what it looks like when you hover -->
+        <tr style="background:#e8f0fe; border-bottom:1px solid #eaecf0; outline:2px solid #3b82f6; outline-offset:-2px; border-radius:4px;">
+          <td style="padding:8px 12px; color:#101828; font-weight:500;">4533</td>
+          <td style="padding:8px 12px; color:#475467;">—</td>
+          <td style="padding:8px 12px; color:#475467;">2026-03-19</td>
+          <td style="padding:8px 12px; color:#475467;">Arpel</td>
+          <td style="padding:8px 12px; color:#475467; text-align:right; font-variant-numeric:tabular-nums;">1h</td>
+          <td style="padding:8px 12px; color:#475467; font-variant-numeric:tabular-nums; font-size:11px;">čet 12.03. 07:00</td>
+          <td style="padding:8px 12px; color:#475467; font-variant-numeric:tabular-nums; font-size:11px;">čet 12.03. 08:00</td>
+          <td style="padding:8px 12px; text-align:center;"><span style="display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:10px; background:#ecfdf5; color:#059669;">OK</span></td>
+          <td style="padding:8px 12px; text-align:center;"><span style="display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:10px; background:#eff8ff; color:#1d4ed8;">NA VRIJEME</span></td>
+          <td style="padding:8px 12px; text-align:center;"><span style="font-size:10px; color:#475467;">PLANIRAN</span></td>
+          <td style="padding:8px 12px; text-align:center; color:#d0d5dd;">✕</td>
+        </tr>
+        <!-- Late row -->
+        <tr style="background:#ffffff; border-bottom:1px solid #eaecf0;">
+          <td style="padding:8px 12px; color:#101828; font-weight:500;">099990</td>
+          <td style="padding:8px 12px; color:#475467;">—</td>
+          <td style="padding:8px 12px; color:#dc2626; font-weight:500;">2026-03-18</td>
+          <td style="padding:8px 12px; color:#475467;">Arpel</td>
+          <td style="padding:8px 12px; color:#475467; text-align:right; font-variant-numeric:tabular-nums;">4h</td>
+          <td style="padding:8px 12px; color:#475467; font-variant-numeric:tabular-nums; font-size:11px;">pon 16.03. 09:00</td>
+          <td style="padding:8px 12px; color:#475467; font-variant-numeric:tabular-nums; font-size:11px;">pon 16.03. 13:00</td>
+          <td style="padding:8px 12px; text-align:center;"><span style="display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:10px; background:#ecfdf5; color:#059669;">OK</span></td>
+          <td style="padding:8px 12px; text-align:center;"><span style="display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:10px; background:#fef2f2; color:#dc2626;">KASNI</span></td>
+          <td style="padding:8px 12px; text-align:center;"><span style="font-size:10px; color:#475467;">PLANIRAN</span></td>
+          <td style="padding:8px 12px; text-align:center; color:#d0d5dd;">✕</td>
+        </tr>
+        <!-- Overlap row -->
+        <tr style="background:#fef2f2; border-bottom:1px solid #eaecf0;">
+          <td style="padding:8px 12px; color:#101828; font-weight:500;">33</td>
+          <td style="padding:8px 12px; color:#475467;">—</td>
+          <td style="padding:8px 12px; color:#475467;">2026-03-17</td>
+          <td style="padding:8px 12px; color:#475467;">Arpel</td>
+          <td style="padding:8px 12px; color:#475467; text-align:right; font-variant-numeric:tabular-nums;">3h</td>
+          <td style="padding:8px 12px; color:#475467; font-variant-numeric:tabular-nums; font-size:11px;">pet 13.03. 12:00</td>
+          <td style="padding:8px 12px; color:#475467; font-variant-numeric:tabular-nums; font-size:11px;">pet 13.03. 15:00</td>
+          <td style="padding:8px 12px; text-align:center;"><span style="display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:10px; background:#fef2f2; color:#dc2626; border:1px solid #fecaca;">PREKLAPANJE</span></td>
+          <td style="padding:8px 12px; text-align:center;"><span style="display:inline-block; font-size:10px; font-weight:500; padding:2px 8px; border-radius:10px; background:#eff8ff; color:#1d4ed8;">NA VRIJEME</span></td>
+          <td style="padding:8px 12px; text-align:center;"><span style="font-size:10px; color:#475467;">PLANIRAN</span></td>
+          <td style="padding:8px 12px; text-align:center; color:#d0d5dd;">✕</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Legend -->
+    <div style="padding:8px 12px; background:#f9fafb; border-top:1px solid #eaecf0; display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+      <span style="font-size:10px; color:#98a2b3;">Legenda:</span>
+      <span style="font-size:10px; display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#ecfdf5; border:1px solid #059669;"></span> <span style="color:#475467;">OK</span></span>
+      <span style="font-size:10px; display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#fef2f2; border:1px solid #dc2626;"></span> <span style="color:#475467;">KASNI / PREKLAPANJE</span></span>
+      <span style="font-size:10px; display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#e8f0fe; border:1px solid #3b82f6;"></span> <span style="color:#475467;">Hover = istaknut u timelineu</span></span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px;">
+  <h3>Ključne promjene</h3>
+  <ul style="font-size:13px; color:#555; line-height:1.8;">
+    <li><strong>Boje:</strong> Subtle Blue-Gray paleta — header #f0f4f8, zebra #f9fafb, borderi #eaecf0</li>
+    <li><strong>Sortiranje:</strong> Klik na header stupca sortira ▲/▼ — koristi TanStack ugrađeni getSortedRowModel()</li>
+    <li><strong>Badge stilovi:</strong> OK/KASNI/PREKLAPANJE/NA VRIJEME imaju pill oblik s blagom pozadinom</li>
+    <li><strong>Hover:</strong> Plavi 3. red u tablici = kad hoveras, u timelineu se isti nalog pulsira/ističe</li>
+    <li><strong>Bez drag-and-drop:</strong> Nema drag handle kolone, nema @dnd-kit wrappera</li>
+    <li><strong>Sticky header:</strong> Header tablice ostaje pri vrhu kad skrolaš</li>
+    <li><strong>Toggle stupaca:</strong> "Stupci" gumb otvara dropdown za sakrivanje nepotrebnih stupaca</li>
+  </ul>
+</div>

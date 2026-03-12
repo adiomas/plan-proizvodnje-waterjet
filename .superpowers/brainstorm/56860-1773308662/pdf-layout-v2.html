@@ -1,0 +1,206 @@
+<h2>PDF Layout v2 — A4 Landscape, Print-optimizirano</h2>
+<p class="subtitle">Profesionalan dokument za print — ne web komponente. A4 landscape s pravilnim marginama.</p>
+
+<div class="cards">
+  <!-- DNEVNI PDF v2 -->
+  <div class="card" data-choice="daily-v2" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#fff; padding:12px; border-radius:2px;">
+      <!-- A4 Landscape ratio simulation -->
+      <div style="font-family: 'Courier New', 'SF Mono', monospace; color:#000; font-size:9.5px; line-height:1.5; padding:18px 22px; border:1px solid #ccc; aspect-ratio: 297/210;">
+
+        <!-- HEADER -->
+        <table style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+          <tr>
+            <td style="font-size:14px; font-weight:bold; letter-spacing:1px; padding-bottom:2px;">DNEVNI PLAN PROIZVODNJE</td>
+            <td style="text-align:right; font-size:10px;">Generirano: 12.03.2026. 08:15</td>
+          </tr>
+        </table>
+
+        <!-- META INFO ROW -->
+        <table style="width:100%; border-collapse:collapse; border-top:2px solid #000; border-bottom:1px solid #000; margin-bottom:10px;">
+          <tr style="font-size:10px; font-weight:bold;">
+            <td style="padding:5px 0;">STROJ: ARPEL</td>
+            <td style="padding:5px 0;">DATUM: Četvrtak, 12.03.2026.</td>
+            <td style="padding:5px 0;">SMJENA: 07:00 — 15:00</td>
+            <td style="padding:5px 0; text-align:right;">NALOGA: 3 | SATI: 7.5h / 8h (94%)</td>
+          </tr>
+        </table>
+
+        <!-- MAIN TABLE -->
+        <table style="width:100%; border-collapse:collapse; font-size:9px;">
+          <thead>
+            <tr style="border-bottom:2px solid #000; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">
+              <th style="text-align:left; padding:4px 6px; width:5%;">#</th>
+              <th style="text-align:left; padding:4px 6px; width:8%;">RN ID</th>
+              <th style="text-align:left; padding:4px 6px; width:25%;">OPIS</th>
+              <th style="text-align:left; padding:4px 6px; width:25%;">NAPOMENA</th>
+              <th style="text-align:center; padding:4px 6px; width:7%;">TRAJ.</th>
+              <th style="text-align:center; padding:4px 6px; width:10%;">POČETAK</th>
+              <th style="text-align:center; padding:4px 6px; width:10%;">KRAJ</th>
+              <th style="text-align:center; padding:4px 6px; width:10%;">ROK</th>
+              <th style="text-align:center; padding:4px 6px; width:8%;">STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #ddd;">
+              <td style="padding:5px 6px;">1</td>
+              <td style="padding:5px 6px; font-weight:bold;">RN-045</td>
+              <td style="padding:5px 6px;">Rezanje inox ploča 2mm — set A</td>
+              <td style="padding:5px 6px; color:#444;">Koristiti program #12, paziti na rubove</td>
+              <td style="padding:5px 6px; text-align:center;">3.5h</td>
+              <td style="padding:5px 6px; text-align:center; font-weight:bold;">07:00</td>
+              <td style="padding:5px 6px; text-align:center; font-weight:bold;">10:30</td>
+              <td style="padding:5px 6px; text-align:center;">14.03.</td>
+              <td style="padding:5px 6px; text-align:center;">NA VRIJEME</td>
+            </tr>
+            <tr style="border-bottom:1px solid #ddd; background:#fef9f0;">
+              <td style="padding:5px 6px;">2</td>
+              <td style="padding:5px 6px; font-weight:bold;">RN-046</td>
+              <td style="padding:5px 6px;">Aluminij profili 5mm — narudžba Petković</td>
+              <td style="padding:5px 6px; color:#444; font-weight:bold;">HITNO! Kupac dolazi po materijal sutra</td>
+              <td style="padding:5px 6px; text-align:center;">2.5h</td>
+              <td style="padding:5px 6px; text-align:center; font-weight:bold;">10:30</td>
+              <td style="padding:5px 6px; text-align:center; font-weight:bold;">13:00</td>
+              <td style="padding:5px 6px; text-align:center; font-weight:bold;">13.03.</td>
+              <td style="padding:5px 6px; text-align:center; font-weight:bold;">KRITIČNO</td>
+            </tr>
+            <tr style="border-bottom:1px solid #ddd;">
+              <td style="padding:5px 6px;">3</td>
+              <td style="padding:5px 6px; font-weight:bold;">RN-047</td>
+              <td style="padding:5px 6px;">Čelični limovi 3mm — serija B</td>
+              <td style="padding:5px 6px; color:#444;">—</td>
+              <td style="padding:5px 6px; text-align:center;">1.5h</td>
+              <td style="padding:5px 6px; text-align:center; font-weight:bold;">13:00</td>
+              <td style="padding:5px 6px; text-align:center; font-weight:bold;">14:30</td>
+              <td style="padding:5px 6px; text-align:center;">20.03.</td>
+              <td style="padding:5px 6px; text-align:center;">NA VRIJEME</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- FOOTER -->
+        <div style="margin-top:auto; padding-top:8px; border-top:1px solid #999; display:flex; justify-content:space-between; font-size:8px; color:#888; margin-top:14px;">
+          <span>Plan Proizvodnje — Waterjet</span>
+          <span>Str. 1/1</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>DNEVNI — A4 Landscape</h3>
+      <p>Tabelarni format. Monospace tipografija. Čiste linije, bez boja osim za isticanje kritičnih statusa. Profesionalan proizvodni dokument.</p>
+    </div>
+  </div>
+
+  <!-- TJEDNI PDF v2 -->
+  <div class="card" data-choice="weekly-v2" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#fff; padding:12px; border-radius:2px;">
+      <div style="font-family: 'Courier New', 'SF Mono', monospace; color:#000; font-size:9.5px; line-height:1.5; padding:18px 22px; border:1px solid #ccc; aspect-ratio: 297/210;">
+
+        <!-- HEADER -->
+        <table style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+          <tr>
+            <td style="font-size:14px; font-weight:bold; letter-spacing:1px; padding-bottom:2px;">TJEDNI PLAN PROIZVODNJE</td>
+            <td style="text-align:right; font-size:10px;">Generirano: 08.03.2026. 14:00</td>
+          </tr>
+        </table>
+
+        <!-- META -->
+        <table style="width:100%; border-collapse:collapse; border-top:2px solid #000; border-bottom:1px solid #000; margin-bottom:10px;">
+          <tr style="font-size:10px; font-weight:bold;">
+            <td style="padding:5px 0;">STROJ: CLASSICA</td>
+            <td style="padding:5px 0;">TJEDAN: 11 (09.03. — 13.03.2026.)</td>
+            <td style="padding:5px 0; text-align:right;">NALOGA: 7 | SATI: 36h / 40h (90%)</td>
+          </tr>
+        </table>
+
+        <!-- PONEDJELJAK -->
+        <div style="margin-bottom:6px;">
+          <div style="font-weight:bold; font-size:10px; padding:3px 6px; background:#eee; border-left:3px solid #000;">PONEDJELJAK, 09.03.</div>
+          <table style="width:100%; border-collapse:collapse; font-size:9px;">
+            <tr style="border-bottom:1px solid #eee;">
+              <td style="padding:3px 6px; width:10%; font-weight:bold;">RN-050</td>
+              <td style="padding:3px 6px; width:35%;">Granitne ploče 4mm — Horvat d.o.o.</td>
+              <td style="padding:3px 6px; width:20%; color:#444;">Paziti na bridove</td>
+              <td style="padding:3px 6px; width:8%; text-align:center;">5h</td>
+              <td style="padding:3px 6px; width:12%; text-align:center; font-weight:bold;">07:00—12:00</td>
+              <td style="padding:3px 6px; width:8%; text-align:center;">15.03.</td>
+              <td style="padding:3px 6px; width:7%; text-align:center;">OK</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eee;">
+              <td style="padding:3px 6px; font-weight:bold;">RN-051</td>
+              <td style="padding:3px 6px;">Mramor rezanje — set C</td>
+              <td style="padding:3px 6px; color:#444;">Program #8</td>
+              <td style="padding:3px 6px; text-align:center;">3h</td>
+              <td style="padding:3px 6px; text-align:center; font-weight:bold;">12:00—15:00</td>
+              <td style="padding:3px 6px; text-align:center;">16.03.</td>
+              <td style="padding:3px 6px; text-align:center;">OK</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- UTORAK -->
+        <div style="margin-bottom:6px;">
+          <div style="font-weight:bold; font-size:10px; padding:3px 6px; background:#eee; border-left:3px solid #000;">UTORAK, 10.03.</div>
+          <table style="width:100%; border-collapse:collapse; font-size:9px;">
+            <tr style="border-bottom:1px solid #eee;">
+              <td style="padding:3px 6px; width:10%; font-weight:bold;">RN-051</td>
+              <td style="padding:3px 6px; width:35%;">Mramor rezanje — set C (nastavak)</td>
+              <td style="padding:3px 6px; width:20%; color:#444;">—</td>
+              <td style="padding:3px 6px; width:8%; text-align:center;">2h</td>
+              <td style="padding:3px 6px; width:12%; text-align:center; font-weight:bold;">07:00—09:00</td>
+              <td style="padding:3px 6px; width:8%; text-align:center;">16.03.</td>
+              <td style="padding:3px 6px; text-align:center; width:7%;">OK</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eee;">
+              <td style="padding:3px 6px; font-weight:bold;">RN-052</td>
+              <td style="padding:3px 6px;">Keramika 6mm — velika serija</td>
+              <td style="padding:3px 6px; color:#444;">Provjeriti abraziv</td>
+              <td style="padding:3px 6px; text-align:center;">6h</td>
+              <td style="padding:3px 6px; text-align:center; font-weight:bold;">09:00—15:00</td>
+              <td style="padding:3px 6px; text-align:center;">18.03.</td>
+              <td style="padding:3px 6px; text-align:center;">OK</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- SRIJEDA -->
+        <div style="margin-bottom:6px;">
+          <div style="font-weight:bold; font-size:10px; padding:3px 6px; background:#eee; border-left:3px solid #000;">SRIJEDA, 11.03.</div>
+          <table style="width:100%; border-collapse:collapse; font-size:9px;">
+            <tr style="border-bottom:1px solid #eee; background:#fef5f0;">
+              <td style="padding:3px 6px; width:10%; font-weight:bold;">RN-053</td>
+              <td style="padding:3px 6px; width:35%;">Hitni rez — popravak</td>
+              <td style="padding:3px 6px; width:20%; color:#444; font-weight:bold;">HITNO — prioritet!</td>
+              <td style="padding:3px 6px; width:8%; text-align:center;">8h</td>
+              <td style="padding:3px 6px; width:12%; text-align:center; font-weight:bold;">07:00—15:00</td>
+              <td style="padding:3px 6px; width:8%; text-align:center; font-weight:bold;">12.03.</td>
+              <td style="padding:3px 6px; text-align:center; width:7%; font-weight:bold;">KRITIČNO</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="text-align:center; color:#999; font-size:8px; padding:4px;">— Četvrtak, Petak na str. 2 —</div>
+
+        <!-- FOOTER -->
+        <div style="padding-top:6px; border-top:1px solid #999; display:flex; justify-content:space-between; font-size:8px; color:#888;">
+          <span>Plan Proizvodnje — Waterjet</span>
+          <span>Str. 1/2</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>TJEDNI — A4 Landscape</h3>
+      <p>Tabelarni format grupiran po danu. Isti stupci kao dnevni ali kompaktniji redovi. Sekcije po danu s naglaskom na kritične naloge.</p>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:16px; padding:14px; background:rgba(255,255,255,0.05); border-radius:4px; border-left:3px solid #646cff; font-size:14px; line-height:1.6;">
+  <strong>Dizajn principi:</strong><br>
+  • A4 Landscape (297×210mm) s 15mm marginama<br>
+  • Monospace / sans-serif tipografija za industrijsku čitljivost<br>
+  • Crno-bijelo optimizirano — minimalna upotreba boja (samo za kritične statuse)<br>
+  • Tabelarni format — ne kartice, ne web komponente<br>
+  • Kompaktno — maksimalno iskorišten prostor<br>
+  • Bold za ključne podatke (RN ID, vremena, kritični statusi)
+</div>

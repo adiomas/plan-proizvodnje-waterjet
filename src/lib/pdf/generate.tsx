@@ -1,5 +1,5 @@
 import { pdf } from "@react-pdf/renderer";
-import type { Machine, ScheduledOrder } from "../types";
+import type { Machine, MachineOverride, ScheduledOrder } from "../types";
 import { formatDate, weekNumber } from "./utils";
 import { DailyReport } from "./daily-report";
 import { WeeklyReport } from "./weekly-report";
@@ -11,10 +11,11 @@ export async function downloadDailyPDF(
   machine: Machine | null,
   machines: Machine[],
   orders: ScheduledOrder[],
-  date: Date
+  date: Date,
+  overrides: MachineOverride[] = []
 ): Promise<void> {
   const blob = await pdf(
-    <DailyReport machine={machine} machines={machines} orders={orders} date={date} />
+    <DailyReport machine={machine} machines={machines} orders={orders} date={date} overrides={overrides} />
   ).toBlob();
   const machineName = machine ? machine.name : "Svi-strojevi";
   const dateStr = formatDate(date).replace(/\./g, "-").slice(0, -1);
@@ -26,10 +27,11 @@ export async function downloadWeeklyPDF(
   machine: Machine | null,
   machines: Machine[],
   orders: ScheduledOrder[],
-  weekStart: Date
+  weekStart: Date,
+  overrides: MachineOverride[] = []
 ): Promise<void> {
   const blob = await pdf(
-    <WeeklyReport machine={machine} machines={machines} orders={orders} weekStart={weekStart} />
+    <WeeklyReport machine={machine} machines={machines} orders={orders} weekStart={weekStart} overrides={overrides} />
   ).toBlob();
   const machineName = machine ? machine.name : "Svi-strojevi";
   const weekStr = `T${weekNumber(weekStart)}`;
