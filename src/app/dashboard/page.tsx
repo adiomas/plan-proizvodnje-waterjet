@@ -15,6 +15,8 @@ import { NewOrderSheet } from "@/components/new-order-dialog";
 import { StatusBar } from "@/components/status-bar";
 import { SchedulingInfoModal } from "@/components/scheduling-info-modal";
 import { ExportMenu } from "@/components/export-menu";
+import { useOverrides } from "@/hooks/use-overrides";
+import { OverrideModal } from "@/components/override-modal";
 
 type Tab = "nalozi" | "gant";
 
@@ -35,11 +37,18 @@ export default function DashboardPage() {
     updateOrder,
     deleteOrder,
   } = useWorkOrders();
+  const {
+    overrides,
+    loading: overridesLoading,
+    addOverride,
+    deleteOverride,
+  } = useOverrides();
 
   const [activeTab, setActiveTab] = useState<Tab>("nalozi");
   const [showMachineDialog, setShowMachineDialog] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showNewOrder, setShowNewOrder] = useState(false);
+  const [showOverrides, setShowOverrides] = useState(false);
   const [filterMachine, setFilterMachine] = useState("");
   const [filterIzvedba, setFilterIzvedba] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,8 +61,8 @@ export default function DashboardPage() {
   const scheduleResult = useMemo(() => {
     if (machines.length === 0)
       return { scheduled: [], byMachine: new Map<string, never[]>() };
-    return computeSchedule(orders, machines, ganttStartDate);
-  }, [orders, machines, ganttStartDate]);
+    return computeSchedule(orders, machines, ganttStartDate, overrides);
+  }, [orders, machines, ganttStartDate, overrides]);
 
   // Filtrirani nalozi
   const filteredOrders = useMemo(() => {
@@ -116,7 +125,7 @@ export default function DashboardPage() {
 
   const hasActiveFilters = !!(filterMachine || filterIzvedba);
 
-  if (machinesLoading || ordersLoading) {
+  if (machinesLoading || ordersLoading || overridesLoading) {
     return (
       <div className="h-[100dvh] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -183,6 +192,17 @@ export default function DashboardPage() {
               {criticalCount} kritično
             </span>
           )}
+          {/* Override modal button */}
+          <button
+            onClick={() => setShowOverrides(true)}
+            className="hidden lg:inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            title="Posebno radno vrijeme"
+          >
+            <span>⏰</span>
+            {overrides.length > 0 && (
+              <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded-full">{overrides.length}</span>
+            )}
+          </button>
           {/* Export PDF */}
           <div className="hidden lg:block">
             <ExportMenu machines={machines} scheduled={scheduleResult.scheduled} />
@@ -370,6 +390,7 @@ export default function DashboardPage() {
             onHoverOrder={setHoveredOrderId}
             onMoveOrder={handleMoveOrder}
             onUnpinOrder={handleUnpinOrder}
+            overrides={overrides}
           />
         </div>
       </div>
@@ -466,6 +487,7 @@ export default function DashboardPage() {
               ganttStartDate={ganttStartDate}
               onMoveOrder={handleMoveOrder}
               onUnpinOrder={handleUnpinOrder}
+              overrides={overrides}
             />
           </div>
         )}
@@ -517,6 +539,16 @@ export default function DashboardPage() {
 
       {/* ======== Info Modal ======== */}
       <SchedulingInfoModal open={showInfo} onClose={() => setShowInfo(false)} />
+
+      {/* ======== Override Modal ======== */}
+      <OverrideModal
+        open={showOverrides}
+        onClose={() => setShowOverrides(false)}
+        machines={machines}
+        overrides={overrides}
+        onAdd={addOverride}
+        onDelete={deleteOverride}
+      />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { addDays, startOfDay, getDay, format, differenceInCalendarDays } from "date-fns";
-import type { Machine, ScheduledOrder } from "@/lib/types";
+import type { Machine, ScheduledOrder, MachineOverride } from "@/lib/types";
 import {
   formatDayDate,
   formatTime,
@@ -19,6 +19,7 @@ interface TimelineProps {
   onHoverOrder?: (id: string | null) => void;
   onMoveOrder?: (orderId: string, targetDate: string) => void;
   onUnpinOrder?: (orderId: string) => void;
+  overrides?: MachineOverride[];
 }
 
 type ZoomLevel = "day" | "week" | "month";
