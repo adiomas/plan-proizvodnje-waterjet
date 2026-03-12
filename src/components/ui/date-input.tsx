@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   startOfMonth,
   endOfMonth,
@@ -51,25 +52,64 @@ function CalendarPopover({
   selected,
   onSelect,
   onClose,
+  anchorRef,
 }: {
   selected: Date | null;
   onSelect: (d: Date) => void;
   onClose: () => void;
+  anchorRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const [viewMonth, setViewMonth] = useState(
     () => selected ?? new Date()
   );
   const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: -9999, left: -9999 });
+  const [visible, setVisible] = useState(false);
+
+  // Position relative to anchor element — measure actual calendar height
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    const cal = ref.current;
+    if (!anchor || !cal) return;
+    const updatePos = () => {
+      const rect = anchor.getBoundingClientRect();
+      const calRect = cal.getBoundingClientRect();
+      const calH = calRect.height;
+      const calW = calRect.width;
+      let top = rect.bottom + 4;
+      let left = rect.left;
+      // Flip up if no room below
+      if (top + calH > window.innerHeight) {
+        top = rect.top - calH - 4;
+      }
+      // Keep within viewport horizontally
+      if (left + calW > window.innerWidth) {
+        left = window.innerWidth - calW - 8;
+      }
+      setPos({ top, left });
+      setVisible(true);
+    };
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [anchorRef]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (
+        ref.current && !ref.current.contains(e.target as Node) &&
+        anchorRef.current && !anchorRef.current.contains(e.target as Node)
+      ) {
         onClose();
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [onClose]);
+  }, [onClose, anchorRef]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -87,10 +127,12 @@ function CalendarPopover({
 
   const monthLabel = format(viewMonth, "LLLL yyyy", { locale: hr });
 
-  return (
+  return createPortal(
     <div
       ref={ref}
-      className="absolute top-full left-0 mt-1 z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-2 w-[240px] select-none"
+      onMouseDown={(e) => e.preventDefault()}
+      style={{ position: "fixed", top: pos.top, left: pos.left, visibility: visible ? "visible" : "hidden" }}
+      className="z-[9999] bg-white rounded-lg shadow-lg border border-gray-200 p-2 w-[240px] select-none"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-1.5 px-1">
@@ -164,7 +206,8 @@ function CalendarPopover({
           Danas
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -275,6 +318,7 @@ export function DateInput({
           selected={selectedDate}
           onSelect={handleCalSelect}
           onClose={closeCalendar}
+          anchorRef={wrapperRef}
         />
       )}
     </div>
