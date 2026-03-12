@@ -19,7 +19,12 @@ export function useWorkOrders() {
       console.error("Greška pri dohvaćanju naloga:", error);
       return;
     }
-    setOrders(data ?? []);
+    setOrders(
+      (data ?? []).map((o) => ({
+        ...o,
+        trajanje_h: Number(o.trajanje_h) || 0,
+      }))
+    );
     setLoading(false);
   }, [supabase]);
 
@@ -45,7 +50,7 @@ export function useWorkOrders() {
       console.error("Greška pri dodavanju naloga:", error);
       return null;
     }
-    setOrders((prev) => [...prev, data]);
+    setOrders((prev) => [...prev, { ...data, trajanje_h: Number(data.trajanje_h) || 0 }]);
     return data;
   };
 

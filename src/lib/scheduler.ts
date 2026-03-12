@@ -218,7 +218,7 @@ function scheduleAutoOrders(
   }
 }
 
-/** End-of-day provjera: ako nalog ne stane do kraja radnog dana i stane u jedan dan, pomakni na sljedeći radni dan */
+/** End-of-day provjera: vraća start nepromijenjeno — calculateEnd rješava multi-day split */
 function adjustStartForEOD(
   start: Date,
   durationH: number,
@@ -311,18 +311,19 @@ function calculateEnd(
   machineId: string,
   overrides: MachineOverride[]
 ): Date {
+  const h = Number(hours); // defensive — Supabase numeric dolazi kao string
   const wh = getWorkingHours(machineId, start, overrides);
   if (!wh) return start; // fallback
 
   const startHour = start.getHours() + start.getMinutes() / 60;
 
   // Stane u ovaj radni dan?
-  if (startHour + hours <= wh.end) {
-    return setTime(start, 0, (startHour + hours) * 60);
+  if (startHour + h <= wh.end) {
+    return setTime(start, 0, (startHour + h) * 60);
   }
 
   // Multi-day: oduzimaj dane dok ne potrošiš sve sate
-  let remaining = hours - (wh.end - startHour);
+  let remaining = h - (wh.end - startHour);
   let current = addDays(startOfDay(start), 1);
 
   for (let i = 0; i < 500; i++) {
