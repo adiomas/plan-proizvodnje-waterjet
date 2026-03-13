@@ -32,8 +32,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm bg-white border border-gray-200 rounded-lg p-8">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 pt-safe pb-safe overflow-auto">
+      <div className="w-full max-w-sm bg-white border border-gray-200 rounded-lg p-8 mx-4">
         <h1 className="text-lg font-semibold text-gray-900 mb-0.5 text-center">
           Plan Proizvodnje
         </h1>
@@ -51,7 +51,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
+              className="w-full px-3 h-11 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
             />
           </div>
           <div>
@@ -64,7 +64,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
+              className="w-full px-3 h-11 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-colors"
             />
           </div>
 
@@ -75,7 +75,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gray-900 text-white py-2 rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
+            className="w-full bg-gray-900 text-white h-11 rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-40 transition-colors"
           >
             {loading ? "..." : "Prijava"}
           </button>

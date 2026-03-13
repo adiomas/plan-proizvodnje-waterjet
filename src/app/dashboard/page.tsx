@@ -20,6 +20,10 @@ import { ExportMenu } from "@/components/export-menu";
 import { useOverrides } from "@/hooks/use-overrides";
 import { useUserRole } from "@/hooks/use-user-role";
 import { OverrideModal } from "@/components/override-modal";
+import { useOvertimeSuggestions } from "@/hooks/use-overtime-suggestions";
+import { OvertimePanel } from "@/components/overtime-panel";
+import { PwaRefreshButton } from "@/components/pwa-refresh-button";
+import type { OvertimeSuggestion } from "@/lib/types";
 
 type Tab = "nalozi" | "gant";
 
@@ -75,6 +79,7 @@ export default function DashboardPage() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY);
   const [editingOrder, setEditingOrder] = useState<WorkOrder | null>(null);
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
+  const [showOvertimePopover, setShowOvertimePopover] = useState(false);
 
   const ganttStartDate = useMemo(() => startOfDay(new Date()), []);
 
@@ -83,6 +88,34 @@ export default function DashboardPage() {
       return { scheduled: [], byMachine: new Map<string, never[]>() };
     return computeSchedule(orders, machines, ganttStartDate, overrides, sirovineEnabled);
   }, [orders, machines, ganttStartDate, overrides, sirovineEnabled]);
+
+  // Overtime suggestions
+  const overtimeResult = useOvertimeSuggestions(
+    scheduleResult.scheduled,
+    orders,
+    machines,
+    overrides,
+    ganttStartDate,
+    sirovineEnabled
+  );
+
+  const handleApproveOvertime = useCallback(async (s: OvertimeSuggestion): Promise<string | null> => {
+    const override = await addOverride(s.machine_id, s.date, s.work_start, s.work_end);
+    return override?.id ?? null;
+  }, [addOverride]);
+
+  const handleApproveAllOvertime = useCallback(async (suggestions: OvertimeSuggestion[]): Promise<(string | null)[]> => {
+    const ids: (string | null)[] = [];
+    for (const s of suggestions) {
+      const override = await addOverride(s.machine_id, s.date, s.work_start, s.work_end);
+      ids.push(override?.id ?? null);
+    }
+    return ids;
+  }, [addOverride]);
+
+  const handleUndoApproveOvertime = useCallback(async (overrideId: string) => {
+    await deleteOverride(overrideId);
+  }, [deleteOverride]);
 
   // Filtrirani nalozi
   const filteredOrders = useMemo(() => {
@@ -202,7 +235,7 @@ export default function DashboardPage() {
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden bg-white">
       {/* ======== HEADER ======== */}
-      <header className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
+      <header className="bg-white border-b border-gray-200 px-4 py-2.5 pt-safe flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-md bg-gray-900 flex items-center justify-center flex-shrink-0">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -242,10 +275,12 @@ export default function DashboardPage() {
               Sirovine
             </button>
           )}
+          {/* PWA refresh button — standalone only */}
+          <PwaRefreshButton />
           {/* Info button */}
           <button
             onClick={() => setShowInfo(true)}
-            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             title="Upute"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -279,6 +314,25 @@ export default function DashboardPage() {
             <span className="hidden sm:inline-flex text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
               {hitniRokCount} hitni rok
             </span>
+          )}
+          {/* Overtime popover — admin only */}
+          {role === "admin" && overtimeResult.fixable_count > 0 && (
+            <div className="relative hidden sm:block">
+              <button
+                onClick={() => setShowOvertimePopover(!showOvertimePopover)}
+                className="inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-medium border border-amber-200 hover:bg-amber-100 transition-colors"
+              >
+                💡 {overtimeResult.fixable_count}
+              </button>
+              <OvertimePanel
+                result={overtimeResult}
+                open={showOvertimePopover}
+                onClose={() => setShowOvertimePopover(false)}
+                onApprove={handleApproveOvertime}
+                onApproveAll={handleApproveAllOvertime}
+                onUndoApprove={handleUndoApproveOvertime}
+              />
+            </div>
           )}
           {/* Override modal button — admin only */}
           {role === "admin" && (
@@ -375,6 +429,93 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* ======== MOBILE: Status badges ======== */}
+      {(overlapCount > 0 || lateCount > 0 || criticalCount > 0 || expiredCount > 0 || hitniRokCount > 0) && (
+        <div className="sm:hidden flex gap-1.5 px-4 py-1.5 border-b border-gray-100 overflow-x-auto flex-shrink-0">
+          {overlapCount > 0 && (
+            <span className="flex-shrink-0 text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
+              {overlapCount} prekl.
+            </span>
+          )}
+          {lateCount > 0 && (
+            <span className="flex-shrink-0 text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium border border-amber-100">
+              {lateCount} kasni
+            </span>
+          )}
+          {criticalCount > 0 && (
+            <span className="flex-shrink-0 text-[10px] bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium border border-yellow-200">
+              {criticalCount} kritično
+            </span>
+          )}
+          {expiredCount > 0 && (
+            <span className="flex-shrink-0 text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-300">
+              {expiredCount} istekao
+            </span>
+          )}
+          {hitniRokCount > 0 && (
+            <span className="flex-shrink-0 text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
+              {hitniRokCount} hitni rok
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ======== MOBILE: Admin toolbar ======== */}
+      {role === "admin" && (
+        <div className="lg:hidden flex items-center gap-2 px-4 py-1.5 border-b border-gray-100 flex-shrink-0 overflow-x-auto">
+          {/* Sirovine toggle — sm:hidden (tablet+ već ima u headeru) */}
+          <button
+            onClick={toggleSirovine}
+            className={`sm:hidden flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md border transition-colors ${
+              sirovineEnabled
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : "bg-gray-50 border-gray-200 text-gray-400"
+            }`}
+          >
+            <div className={`w-6 h-3.5 rounded-full relative transition-colors ${sirovineEnabled ? "bg-emerald-500" : "bg-gray-300"}`}>
+              <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-transform ${sirovineEnabled ? "translate-x-3" : "translate-x-0.5"}`} />
+            </div>
+            Sir.
+          </button>
+
+          {/* Overtime 💡 — sm:hidden (tablet+ već ima) */}
+          {overtimeResult.fixable_count > 0 && (
+            <div className="relative sm:hidden flex-shrink-0">
+              <button
+                onClick={() => setShowOvertimePopover(!showOvertimePopover)}
+                className="inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-medium border border-amber-200 hover:bg-amber-100 transition-colors"
+              >
+                💡 {overtimeResult.fixable_count}
+              </button>
+              <OvertimePanel
+                result={overtimeResult}
+                open={showOvertimePopover}
+                onClose={() => setShowOvertimePopover(false)}
+                onApprove={handleApproveOvertime}
+                onApproveAll={handleApproveAllOvertime}
+                onUndoApprove={handleUndoApproveOvertime}
+              />
+            </div>
+          )}
+
+          {/* Override ⏰ — telefoni + tableti */}
+          <button
+            onClick={() => setShowOverrides(true)}
+            className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors"
+          >
+            <span>⏰</span>
+            {overrides.length > 0 && (
+              <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded-full">{overrides.length}</span>
+            )}
+          </button>
+
+          {/* Export — telefoni + tableti */}
+          <div className="flex-shrink-0">
+            <ExportMenu machines={machines} scheduled={scheduleResult.scheduled} overrides={overrides} sirovineEnabled={sirovineEnabled} />
+          </div>
+        </div>
+      )}
 
       {/* ======== DESKTOP CONTENT ======== */}
       <div className="hidden lg:flex lg:flex-col flex-1 min-h-0 overflow-hidden">
@@ -515,6 +656,7 @@ export default function DashboardPage() {
             onUnpinOrder={handleUnpinOrder}
             overrides={overrides}
             sirovineEnabled={sirovineEnabled}
+            overtimeSuggestions={role === "admin" ? overtimeResult.suggestions : []}
           />
         </div>
       </div>
@@ -585,6 +727,15 @@ export default function DashboardPage() {
                   <option value="U TIJEKU">U TIJEKU</option>
                   <option value="ZAVRŠEN">ZAVRŠEN</option>
                 </select>
+                {sirovineEnabled && (
+                  <select value={filterSirovine} onChange={(e) => setFilterSirovine(e.target.value)} className="text-xs border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/5">
+                    <option value="">Sve sirovine</option>
+                    <option value="IMA">IMA</option>
+                    <option value="NEMA">NEMA</option>
+                    <option value="CEKA">ČEKA</option>
+                    <option value="null">NEPROVJERENO</option>
+                  </select>
+                )}
                 <button
                   onClick={() => setFilterHitniRok(!filterHitniRok)}
                   className={`text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors ${
@@ -596,7 +747,7 @@ export default function DashboardPage() {
                   🚨 Hitni rok
                 </button>
                 {hasActiveFilters && (
-                  <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); setFilterHitniRok(false); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
+                  <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); setFilterSirovine(""); setFilterHitniRok(false); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
                     Očisti
                   </button>
                 )}
@@ -630,6 +781,7 @@ export default function DashboardPage() {
               onMoveOrder={handleMoveOrder}
               onUnpinOrder={handleUnpinOrder}
               overrides={overrides}
+              overtimeSuggestions={role === "admin" ? overtimeResult.suggestions : []}
             />
           </div>
         )}
