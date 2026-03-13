@@ -39,6 +39,8 @@ export default function DashboardPage() {
     addOrder,
     updateOrder,
     deleteOrder,
+    convertToSplit,
+    convertToSingle,
   } = useWorkOrders();
   const {
     overrides,
@@ -692,6 +694,8 @@ export default function DashboardPage() {
           splitSibling={editingSplitSibling}
           machines={machines}
           onUpdate={updateOrder}
+          onConvertToSplit={convertToSplit}
+          onConvertToSingle={convertToSingle}
           canEdit={canEdit}
         />
       )}

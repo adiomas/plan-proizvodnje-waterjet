@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Machine, WorkOrder } from "@/lib/types";
+import type { Machine, WorkOrder, NewWorkOrder } from "@/lib/types";
 import { DateInput, parseDateInput, isoToDisplay } from "@/components/ui/date-input";
 
 interface EditOrderDialogProps {
@@ -11,6 +11,8 @@ interface EditOrderDialogProps {
   splitSibling: WorkOrder | null;
   machines: Machine[];
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
+  onConvertToSplit: (orderId: string, updatesA: Partial<WorkOrder>, newPartB: NewWorkOrder) => Promise<boolean>;
+  onConvertToSingle: (orderId: string, updatesA: Partial<WorkOrder>) => Promise<boolean>;
   canEdit?: (field?: string) => boolean;
 }
 
@@ -21,9 +23,12 @@ export function EditOrderDialog({
   splitSibling,
   machines,
   onUpdate,
+  onConvertToSplit,
+  onConvertToSingle,
   canEdit,
 }: EditOrderDialogProps) {
-  const isSplit = !!splitSibling;
+  const wasSplit = !!splitSibling;
+  const [splitEnabled, setSplitEnabled] = useState(wasSplit);
 
   // Shared fields
   const [rnId, setRnId] = useState(order.rn_id);
@@ -55,16 +60,15 @@ export function EditOrderDialog({
 
   if (!open) return null;
 
-  const sameMachine = isSplit && machineIdA && machineIdA === machineIdB;
+  const sameMachine = splitEnabled && machineIdA && machineIdA === machineIdB;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!machineIdA) return;
-    if (isSplit && (!machineIdB || sameMachine)) return;
+    if (splitEnabled && (!machineIdB || sameMachine)) return;
     setSaving(true);
 
-    // Update order A (includes shared fields — hook auto-syncs to sibling)
-    await onUpdate(order.id, {
+    const updatesA: Partial<WorkOrder> = {
       rn_id: rnId,
       rok_isporuke: rokIsporuke || null,
       hitno,
@@ -75,10 +79,33 @@ export function EditOrderDialog({
       zeljeni_redoslijed: redoslijedA ? parseInt(redoslijedA) : null,
       najraniji_pocetak: najranijiA || null,
       izvedba: izvedbaA,
-    });
+    };
 
-    // Update order B (per-part fields only)
-    if (isSplit && splitSibling) {
+    if (!wasSplit && splitEnabled) {
+      // Single → Split
+      const partBData: NewWorkOrder = {
+        rn_id: rnId,
+        rok_isporuke: rokIsporuke || null,
+        hitno,
+        machine_id: machineIdB,
+        trajanje_h: parseFloat(trajanjeB),
+        opis: opisB || null,
+        napomena: napomenaB || null,
+        zeljeni_redoslijed: redoslijedB ? parseInt(redoslijedB) : null,
+        najraniji_pocetak: najranijiB || null,
+        izvedba: izvedbaB,
+        status_sirovine: null,
+        split_group_id: null,
+        split_label: null,
+        sort_order: 0,
+      };
+      await onConvertToSplit(order.id, updatesA, partBData);
+    } else if (wasSplit && !splitEnabled) {
+      // Split → Single
+      await onConvertToSingle(order.id, updatesA);
+    } else if (wasSplit && splitEnabled && splitSibling) {
+      // Split → Split (edit both)
+      await onUpdate(order.id, updatesA);
       await onUpdate(splitSibling.id, {
         machine_id: machineIdB,
         trajanje_h: parseFloat(trajanjeB),
@@ -88,6 +115,9 @@ export function EditOrderDialog({
         najraniji_pocetak: najranijiB || null,
         izvedba: izvedbaB,
       });
+    } else {
+      // Single → Single (existing logic)
+      await onUpdate(order.id, updatesA);
     }
 
     setSaving(false);
@@ -122,8 +152,8 @@ export function EditOrderDialog({
   ) => {
     const ic = compact ? inputDesktop : inputMobile;
     return (
-      <div className={`${isSplit ? "border border-gray-200 rounded-lg p-3" : ""}`}>
-        {isSplit && (
+      <div className={`${splitEnabled ? "border border-gray-200 rounded-lg p-3" : ""}`}>
+        {splitEnabled && (
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{label}</p>
         )}
         <div className={compact ? "space-y-2" : "space-y-3"}>
@@ -204,13 +234,33 @@ export function EditOrderDialog({
           </div>
         </div>
 
-        {isSplit && (
+        {/* Split toggle — admin only */}
+        {canEdit?.() && (
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={splitEnabled}
+              onChange={(e) => setSplitEnabled(e.target.checked)}
+              className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+            />
+            <span className="text-xs text-gray-600 font-medium">Podijeli na dva stroja</span>
+          </label>
+        )}
+
+        {/* Informativna poruka o promjeni */}
+        {!wasSplit && splitEnabled && (
+          <p className="text-[10px] text-blue-500 font-medium">Nalog će biti podijeljen na dva stroja.</p>
+        )}
+        {wasSplit && !splitEnabled && (
+          <p className="text-[10px] text-amber-600 font-medium">Dio B će biti obrisan. Nalog postaje obični nalog.</p>
+        )}
+        {wasSplit && splitEnabled && (
           <p className="text-[10px] text-gray-400 font-medium">Split nalog — oba dijela prikazana ispod</p>
         )}
 
         {/* Dio A */}
         {partFields(
-          compact, isSplit ? `Dio ${order.split_label ?? "A"}` : "",
+          compact, splitEnabled ? `Dio ${order.split_label ?? "A"}` : "",
           machineIdA, setMachineIdA,
           trajanjeA, setTrajanjeA,
           opisA, setOpisA,
@@ -222,7 +272,7 @@ export function EditOrderDialog({
         )}
 
         {/* Dio B */}
-        {isSplit && partFields(
+        {splitEnabled && partFields(
           compact, `Dio ${splitSibling?.split_label ?? "B"}`,
           machineIdB, setMachineIdB,
           trajanjeB, setTrajanjeB,
@@ -247,7 +297,7 @@ export function EditOrderDialog({
 
       {/* Desktop: compact centered modal */}
       <div className="hidden lg:flex items-center justify-center absolute inset-0 pointer-events-none">
-        <div className={`bg-white rounded-xl shadow-2xl pointer-events-auto ${isSplit ? "w-[580px]" : "w-[520px]"} max-h-[90vh] flex flex-col`}>
+        <div className={`bg-white rounded-xl shadow-2xl pointer-events-auto ${splitEnabled ? "w-[580px]" : "w-[520px]"} max-h-[90vh] flex flex-col`}>
           <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-100 flex-shrink-0">
             <h2 className="text-sm font-bold text-gray-900">Uredi radni nalog</h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 -mr-1">
@@ -263,7 +313,7 @@ export function EditOrderDialog({
               <button type="button" onClick={onClose} className="flex-1 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 Odustani
               </button>
-              <button type="submit" disabled={saving || !!sameMachine} className="flex-[2] py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+              <button type="submit" disabled={saving || !!sameMachine || (splitEnabled && !machineIdB)} className="flex-[2] py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors">
                 {saving ? "Spremam..." : "Spremi promjene"}
               </button>
             </div>
@@ -294,7 +344,7 @@ export function EditOrderDialog({
               <button type="button" onClick={onClose} className="flex-1 py-3 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-[0.98] transition-transform">
                 Odustani
               </button>
-              <button type="submit" disabled={saving || !!sameMachine} className="flex-[2] py-3 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-emerald-600/20">
+              <button type="submit" disabled={saving || !!sameMachine || (splitEnabled && !machineIdB)} className="flex-[2] py-3 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-emerald-600/20">
                 {saving ? "Spremam..." : "Spremi promjene"}
               </button>
             </div>

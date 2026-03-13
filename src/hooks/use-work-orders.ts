@@ -235,6 +235,119 @@ export function useWorkOrders() {
     }
   };
 
+  const convertToSplit = async (
+    orderId: string,
+    updatesA: Partial<WorkOrder>,
+    newPartB: NewWorkOrder
+  ): Promise<boolean> => {
+    const orderA = orders.find((o) => o.id === orderId);
+    if (!orderA) return false;
+
+    const groupId = crypto.randomUUID();
+    const maxOrder = orders.length > 0
+      ? Math.max(...orders.map((o) => o.sort_order))
+      : -1;
+
+    // Update A: apply user edits + set split fields
+    const { error: errorA } = await supabase
+      .from("excel_work_orders")
+      .update({
+        ...updatesA,
+        split_group_id: groupId,
+        split_label: "A",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId);
+
+    if (errorA) {
+      console.error("Greška pri konverziji A u split:", errorA);
+      return false;
+    }
+
+    // Insert B
+    const { data: dataB, error: errorB } = await supabase
+      .from("excel_work_orders")
+      .insert({
+        ...newPartB,
+        user_id: orderA.user_id,
+        split_group_id: groupId,
+        split_label: "B",
+        sort_order: maxOrder + 1,
+      })
+      .select()
+      .single();
+
+    if (errorB) {
+      console.error("Greška pri kreiranju dijela B:", errorB);
+      // Rollback A
+      await supabase
+        .from("excel_work_orders")
+        .update({ split_group_id: null, split_label: null, updated_at: new Date().toISOString() })
+        .eq("id", orderId);
+      return false;
+    }
+
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? { ...o, ...updatesA, split_group_id: groupId, split_label: "A" as const }
+          : o
+      ).concat({ ...dataB, trajanje_h: Number(dataB.trajanje_h) || 0 })
+    );
+    return true;
+  };
+
+  const convertToSingle = async (
+    orderId: string,
+    updatesA: Partial<WorkOrder>
+  ): Promise<boolean> => {
+    const orderA = orders.find((o) => o.id === orderId);
+    if (!orderA?.split_group_id) return false;
+
+    const sibling = orders.find(
+      (o) => o.split_group_id === orderA.split_group_id && o.id !== orderId
+    );
+    if (!sibling) return false;
+
+    // Delete B
+    const { error: errorDel } = await supabase
+      .from("excel_work_orders")
+      .delete()
+      .eq("id", sibling.id);
+
+    if (errorDel) {
+      console.error("Greška pri brisanju dijela B:", errorDel);
+      return false;
+    }
+
+    // Update A: apply user edits + clear split fields
+    const { error: errorUpd } = await supabase
+      .from("excel_work_orders")
+      .update({
+        ...updatesA,
+        split_group_id: null,
+        split_label: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId);
+
+    if (errorUpd) {
+      console.error("Greška pri ažuriranju A nakon unsplit:", errorUpd);
+      return false;
+    }
+
+    setOrders((prev) =>
+      prev
+        .filter((o) => o.id !== sibling.id)
+        .map((o) =>
+          o.id === orderId
+            ? { ...o, ...updatesA, split_group_id: null, split_label: null }
+            : o
+        )
+    );
+    return true;
+  };
+
   const updateSirovine = async (id: string, newStatus: "IMA" | "NEMA" | null) => {
     const { error } = await supabase.rpc("update_status_sirovine", {
       order_id: id,
@@ -258,6 +371,8 @@ export function useWorkOrders() {
     deleteOrder,
     reorderOrders,
     updateSirovine,
+    convertToSplit,
+    convertToSingle,
     refetch: fetchOrders,
   };
 }
