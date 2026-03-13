@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { addDays, startOfDay, getDay, format, differenceInCalendarDays } from "date-fns";
-import type { Machine, ScheduledOrder, MachineOverride } from "@/lib/types";
+import type { Machine, ScheduledOrder, MachineOverride, OvertimeSuggestion } from "@/lib/types";
 import { formatDuration } from "@/components/ui/duration-input";
 import {
   formatDayDate,
@@ -26,6 +26,7 @@ interface TimelineProps {
   onUnpinOrder?: (orderId: string) => void;
   overrides?: MachineOverride[];
   sirovineEnabled?: boolean;
+  overtimeSuggestions?: OvertimeSuggestion[];
 }
 
 type ZoomLevel = "day" | "week" | "month";
@@ -65,6 +66,7 @@ export function Timeline({
   onUnpinOrder,
   overrides = [],
   sirovineEnabled = false,
+  overtimeSuggestions: _overtimeSuggestions = [],
 }: TimelineProps) {
   const [zoom, setZoom] = useState<ZoomLevel>("day");
   const [tooltip, setTooltip] = useState<{

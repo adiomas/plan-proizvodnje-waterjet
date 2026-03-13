@@ -81,6 +81,22 @@ export interface UserProfile {
   created_at: string;
 }
 
+/** Prijedlog prekovremenog rada za rješavanje kašnjenja. */
+export interface OvertimeSuggestion {
+  machine_id: string;
+  machine_name: string;
+  date: string;       // ISO date "2026-03-21"
+  work_start: string; // "07:00"
+  work_end: string;   // "19:00"
+  extra_hours: number; // koliko sati se dobije prekovremenim
+  affected_orders: number; // broj naloga koji kasne na taj stroj/dan
+}
+
+export interface OvertimeResult {
+  fixable_count: number;
+  suggestions: OvertimeSuggestion[];
+}
+
 /** Radno vrijeme za određeni stroj na određeni dan. null = neradni dan. */
 export interface WorkingHours {
   start: number; // 7
