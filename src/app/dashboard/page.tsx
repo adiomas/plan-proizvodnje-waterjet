@@ -91,7 +91,7 @@ export default function DashboardPage() {
     if (filterIzvedba)
       result = result.filter((o) => o.izvedba === filterIzvedba);
     if (filterHitniRok)
-      result = result.filter((o) => o.hitni_rok !== null);
+      result = result.filter((o) => !!o.hitni_rok);
     if (sirovineEnabled && filterSirovine) {
       if (filterSirovine === "null") {
         result = result.filter((o) => o.status_sirovine === null);
@@ -123,7 +123,7 @@ export default function DashboardPage() {
     if (filterIzvedba)
       result = result.filter((s) => s.order.izvedba === filterIzvedba);
     if (filterHitniRok)
-      result = result.filter((s) => s.order.hitni_rok !== null);
+      result = result.filter((s) => !!s.order.hitni_rok);
     return result;
   }, [scheduleResult.scheduled, filterMachine, filterIzvedba, filterHitniRok]);
 

@@ -178,8 +178,8 @@ function scheduleAutoOrders(
 ): void {
   // EDD: nalozi s hitni_rok ISPRED svih (sortirani po hitni_rok datumu), zatim po roku, null rok na kraj
   const sorted = [...autoOrders].sort((a, b) => {
-    const aHasHitniRok = a.hitni_rok !== null;
-    const bHasHitniRok = b.hitni_rok !== null;
+    const aHasHitniRok = !!a.hitni_rok;
+    const bHasHitniRok = !!b.hitni_rok;
     if (aHasHitniRok !== bHasHitniRok) return aHasHitniRok ? -1 : 1;
     if (aHasHitniRok && bHasHitniRok) {
       const aHr = parseISO(a.hitni_rok!).getTime();
