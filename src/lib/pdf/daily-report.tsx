@@ -120,7 +120,7 @@ function DailyPage({
           {/* Table rows */}
           {segments.map((seg, i) => {
             const isCritical =
-              seg.order.stanje === "KRITIČNO" || seg.order.stanje === "KASNI";
+              seg.order.stanje === "KRITIČNO" || seg.order.stanje === "KASNI" || seg.order.stanje === "ROK ISTEKAO";
             const rowStyle = isCritical ? s.tableRowHighlight : s.tableRow;
             const cellStyle = isCritical ? s.tdBold : s.td;
 
@@ -128,7 +128,9 @@ function DailyPage({
               <View key={`${seg.order.order.id}-${i}`} style={rowStyle} wrap={false}>
                 <Text style={[s.td, { width: DAILY_COLS.num }]}>{i + 1}</Text>
                 <Text style={[s.tdBold, { width: DAILY_COLS.rnId }]}>
+                  {seg.order.order.hitni_rok ? "🚨 " : ""}
                   {seg.order.order.rn_id}
+                  {seg.order.order.split_label ? ` (${seg.order.order.split_label})` : ""}
                   {seg.isContinuation ? " *" : ""}
                 </Text>
                 <Text style={[s.td, { width: DAILY_COLS.opis }]}>

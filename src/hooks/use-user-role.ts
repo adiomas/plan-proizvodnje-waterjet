@@ -62,13 +62,15 @@ export function useUserRole() {
     (field?: string): boolean => {
       if (role === "admin") return true;
       if (role === "material" && field === "status_sirovine" && sirovineEnabled) return true;
+      if (role === "material" && field === "hitni_rok") return true;
+      if (role === "tehnicka_priprema" && (field === "rn_id" || field === "rok_isporuke")) return true;
       return false;
     },
     [role, sirovineEnabled]
   );
 
   const canDelete = useCallback((): boolean => role === "admin", [role]);
-  const canAdd = useCallback((): boolean => role === "admin", [role]);
+  const canAdd = useCallback((): boolean => role === "admin" || role === "tehnicka_priprema", [role]);
   const canReorder = useCallback((): boolean => role === "admin", [role]);
 
   return {

@@ -164,9 +164,16 @@ function findEarliestStart(
   return candidate;
 }
 
+const HORIZON_DAYS = 30;
+
 /**
- * Automatsko raspoređivanje — Earliest Deadline First (EDD) s "ne prije" semantikom.
- * Nalozi bez redoslijeda (ima samo najraniji_pocetak ili nema oba) se raspoređuju automatski.
+ * Automatsko raspoređivanje s planning horizontom.
+ *
+ * Četiri kategorije:
+ * 1. INCOMPLETE (bez stroja/trajanja) → "ČEKA PRIPREMU"
+ * 2. CRITICAL (hitni_rok) → forward scheduling ASAP
+ * 3. FIRM (rok unutar horizonta 30d) → forward EDD, kompaktno raspoređivanje
+ * 4. TENTATIVE (rok izvan horizonta) → backward scheduling blizu roka, status "ZAKAZANO"
  */
 function scheduleAutoOrders(
   autoOrders: WorkOrder[],
@@ -176,21 +183,44 @@ function scheduleAutoOrders(
   overrides: MachineOverride[],
   sirovineEnabled = false
 ): void {
-  // EDD: sortiraj po roku (najhitniji prvo), null rok ide na kraj
-  const sorted = [...autoOrders].sort((a, b) => {
+  const horizonEnd = addDays(startOfDay(new Date()), HORIZON_DAYS);
+
+  // Kategorizacija
+  const critical: WorkOrder[] = [];
+  const deadline: WorkOrder[] = [];
+  const incomplete: WorkOrder[] = [];
+
+  for (const order of autoOrders) {
+    if (!order.machine_id || order.trajanje_h <= 0) {
+      incomplete.push(order);
+    } else if (order.hitni_rok) {
+      critical.push(order);
+    } else {
+      deadline.push(order);
+    }
+  }
+
+  // Sortiraj critical po hitni_rok (ascending)
+  critical.sort((a, b) => {
+    const aHr = parseISO(a.hitni_rok!).getTime();
+    const bHr = parseISO(b.hitni_rok!).getTime();
+    if (aHr !== bHr) return aHr - bHr;
+    return a.sort_order - b.sort_order;
+  });
+
+  // Sortiraj deadline po rok_isporuke (ascending) — najhitnije prvo
+  deadline.sort((a, b) => {
     const aDeadline = a.rok_isporuke ? parseISO(a.rok_isporuke).getTime() : Infinity;
     const bDeadline = b.rok_isporuke ? parseISO(b.rok_isporuke).getTime() : Infinity;
     if (aDeadline !== bDeadline) return aDeadline - bDeadline;
     return a.sort_order - b.sort_order;
   });
 
+  // Inicijaliziraj occupied ranges iz manual naloga
   const occupiedByMachine = new Map<string, TimeRange[]>();
-
   for (const m of machines) {
     occupiedByMachine.set(m.id, []);
   }
-
-  // Prikupi zauzete intervale iz manual naloga
   for (const item of scheduled) {
     if (item.start && item.end && item.order.machine_id) {
       occupiedByMachine.get(item.order.machine_id)?.push({
@@ -200,37 +230,255 @@ function scheduleAutoOrders(
     }
   }
 
-  for (const order of sorted) {
-    if (!order.machine_id || order.trajanje_h <= 0) {
-      scheduled.push(makeResult(order, null, null, "NEMA RASPOREDA"));
+  // Incomplete nalozi — "ČEKA PRIPREMU"
+  for (const order of incomplete) {
+    scheduled.push(makeResult(order, null, null, "ČEKA PRIPREMU"));
+  }
+
+  // Forward schedule CRITICAL naloge
+  for (const order of critical) {
+    const result = scheduleOneForward(order, ganttStartDate, occupiedByMachine, overrides, sirovineEnabled);
+    scheduled.push(result);
+    if (result.start && result.end && order.machine_id) {
+      (occupiedByMachine.get(order.machine_id) ?? []).push({
+        start: result.start,
+        end: result.end,
+      });
+    }
+  }
+
+  // Podijeli deadline naloge na FIRM (unutar horizonta) i TENTATIVE (izvan horizonta)
+  const firm: WorkOrder[] = [];
+  const tentative: WorkOrder[] = [];
+
+  for (const order of deadline) {
+    if (!order.rok_isporuke) {
+      // Bez roka — forward EDD (firm)
+      firm.push(order);
       continue;
     }
 
-    const occupied = occupiedByMachine.get(order.machine_id) ?? [];
+    const deadlineDate = parseISO(order.rok_isporuke);
 
-    // "Ne prije" logika: ako nalog ima najraniji_pocetak, koristi ga kao minimum
-    let earliest = ganttStartDate;
-    if (order.najraniji_pocetak) {
-      const npDate = parseISO(order.najraniji_pocetak);
-      if (isAfter(npDate, ganttStartDate)) {
-        earliest = npDate;
+    if (!isAfter(deadlineDate, horizonEnd)) {
+      // Rok unutar horizonta — firm
+      firm.push(order);
+    } else {
+      // Safety check: dug nalog čiji latestStart pada unutar horizonta
+      const mustFinishBy = prevWorkday(prevWorkday(deadlineDate));
+      const wh = getWorkingHours(order.machine_id, mustFinishBy, overrides);
+      const endHour = wh ? wh.end : WORKDAY_END;
+      const latestStart = calculateStartFromEnd(
+        setTime(mustFinishBy, 0, endHour * 60),
+        order.trajanje_h,
+        order.machine_id,
+        overrides
+      );
+      if (isBefore(latestStart, horizonEnd)) {
+        firm.push(order);
+      } else {
+        tentative.push(order);
       }
     }
+  }
 
-    const start = findEarliestStart(
-      earliest,
+  // FIRM: Forward EDD za naloge unutar horizonta (kompaktno)
+  for (const order of firm) {
+    const result = scheduleOneForward(order, ganttStartDate, occupiedByMachine, overrides, sirovineEnabled);
+    scheduled.push(result);
+    if (result.start && result.end && order.machine_id) {
+      (occupiedByMachine.get(order.machine_id) ?? []).push({
+        start: result.start,
+        end: result.end,
+      });
+    }
+  }
+
+  // TENTATIVE: Backward scheduling za daleke naloge (blizu roka, status "ZAKAZANO")
+  for (const order of tentative) {
+    const deadlineDate = parseISO(order.rok_isporuke!);
+    const mustFinishBy = prevWorkday(prevWorkday(deadlineDate));
+    const occupied = occupiedByMachine.get(order.machine_id) ?? [];
+
+    const start = findLatestStart(
+      mustFinishBy,
       order.trajanje_h,
       occupied,
       order.machine_id,
-      overrides
+      overrides,
+      ganttStartDate
     );
-    const end = calculateEnd(start, order.trajanje_h, order.machine_id, overrides);
-    const stanje = calculateDeadline(order, end);
-    const baseStatus: ScheduleStatus = sirovineEnabled && order.status_sirovine === "CEKA" ? "ČEKANJE SIROVINE" : "OK";
 
-    scheduled.push(makeResult(order, start, end, baseStatus, stanje));
-    occupied.push({ start, end });
+    if (start) {
+      const end = calculateEnd(start, order.trajanje_h, order.machine_id, overrides);
+      const stanje = calculateDeadline(order, end);
+      scheduled.push(makeResult(order, start, end, "ZAKAZANO", stanje));
+      (occupiedByMachine.get(order.machine_id) ?? []).push({ start, end });
+    } else {
+      // Fallback: forward scheduling
+      const result = scheduleOneForward(order, ganttStartDate, occupiedByMachine, overrides, sirovineEnabled);
+      result.status = "ZAKAZANO";
+      scheduled.push(result);
+      if (result.start && result.end && order.machine_id) {
+        (occupiedByMachine.get(order.machine_id) ?? []).push({
+          start: result.start,
+          end: result.end,
+        });
+      }
+    }
   }
+}
+
+/** Rasporedi jedan auto nalog forward (izvučena logika za reuse) */
+function scheduleOneForward(
+  order: WorkOrder,
+  ganttStartDate: Date,
+  occupiedByMachine: Map<string, TimeRange[]>,
+  overrides: MachineOverride[],
+  sirovineEnabled: boolean
+): ScheduledOrder {
+  if (!order.machine_id || order.trajanje_h <= 0) {
+    return makeResult(order, null, null, order.machine_id ? "NEMA RASPOREDA" : "ČEKA PRIPREMU");
+  }
+
+  const occupied = occupiedByMachine.get(order.machine_id) ?? [];
+
+  let earliest = ganttStartDate;
+  if (order.hitni_rok) {
+    const hrDate = parseISO(order.hitni_rok);
+    if (isAfter(hrDate, earliest)) earliest = hrDate;
+  }
+  if (order.najraniji_pocetak) {
+    const npDate = parseISO(order.najraniji_pocetak);
+    if (isAfter(npDate, earliest)) earliest = npDate;
+  }
+
+  const start = findEarliestStart(earliest, order.trajanje_h, occupied, order.machine_id, overrides);
+  const end = calculateEnd(start, order.trajanje_h, order.machine_id, overrides);
+  const stanje = calculateDeadline(order, end);
+  const baseStatus: ScheduleStatus = sirovineEnabled && order.status_sirovine === "CEKA" ? "ČEKANJE SIROVINE" : "OK";
+
+  return makeResult(order, start, end, baseStatus, stanje);
+}
+
+/**
+ * Izračunaj start datum backward od end datuma.
+ * Inverz calculateEnd() — radi od kraja prema početku.
+ */
+function calculateStartFromEnd(
+  end: Date,
+  durationH: number,
+  machineId: string,
+  overrides: MachineOverride[]
+): Date {
+  const h = Number(durationH);
+  const wh = getWorkingHours(machineId, end, overrides);
+  if (!wh) return end; // fallback
+
+  const endHour = end.getHours() + end.getMinutes() / 60;
+
+  // Stane u isti radni dan?
+  if (endHour - h >= wh.start) {
+    return setTime(end, 0, (endHour - h) * 60);
+  }
+
+  // Multi-day backward: oduzimaj dane unatrag
+  let remaining = h - (endHour - wh.start);
+  let current = addDays(startOfDay(end), -1);
+
+  for (let i = 0; i < 500; i++) {
+    const dayWh = getWorkingHours(machineId, current, overrides);
+    if (dayWh === null) {
+      current = addDays(current, -1);
+      continue;
+    }
+
+    if (remaining <= dayWh.hours) {
+      return setTime(current, 0, (dayWh.end - remaining) * 60);
+    }
+
+    remaining -= dayWh.hours;
+    current = addDays(current, -1);
+  }
+
+  return workdayStart(current);
+}
+
+/**
+ * Nađi najkasniji slobodni slot koji završava prije mustFinishBy.
+ * Vraća start datum ili null ako nema mjesta.
+ */
+function findLatestStart(
+  mustFinishBy: Date,
+  durationH: number,
+  occupied: TimeRange[],
+  machineId: string,
+  overrides: MachineOverride[],
+  ganttStartDate: Date
+): Date | null {
+  const sorted = [...occupied].sort(
+    (a, b) => b.start.getTime() - a.start.getTime() // sortirano od najkasnijeg
+  );
+
+  // End target = kraj radnog dana na mustFinishBy datumu
+  const whFinish = getWorkingHours(machineId, mustFinishBy, overrides);
+  let endTarget = whFinish
+    ? setTime(mustFinishBy, 0, whFinish.end * 60)
+    : setTime(mustFinishBy, WORKDAY_END);
+
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const startCandidate = calculateStartFromEnd(endTarget, durationH, machineId, overrides);
+
+    // Ne može ići prije ganttStartDate (danas)
+    if (isBefore(startCandidate, ganttStartDate)) {
+      return null;
+    }
+
+    const candidateEnd = calculateEnd(startCandidate, durationH, machineId, overrides);
+
+    // Provjeri koliziju s occupied ranges
+    const conflict = sorted.find(
+      (r) => isBefore(r.start, candidateEnd) && isAfter(r.end, startCandidate)
+    );
+
+    if (!conflict) {
+      return startCandidate;
+    }
+
+    // Pomakni endTarget prije konflikta
+    endTarget = conflict.start;
+
+    // Normaliziraj na radno vrijeme (kraj prethodnog radnog perioda)
+    const whConflict = getWorkingHours(machineId, endTarget, overrides);
+    if (whConflict) {
+      const conflictHour = endTarget.getHours() + endTarget.getMinutes() / 60;
+      if (conflictHour <= whConflict.start) {
+        // Konflikt počinje na početku dana — idi na prethodni radni dan
+        let prev = addDays(startOfDay(endTarget), -1);
+        for (let j = 0; j < 10; j++) {
+          const prevWh = getWorkingHours(machineId, prev, overrides);
+          if (prevWh) {
+            endTarget = setTime(prev, 0, prevWh.end * 60);
+            break;
+          }
+          prev = addDays(prev, -1);
+        }
+      }
+    } else {
+      // Neradni dan — idi unatrag
+      let prev = addDays(startOfDay(endTarget), -1);
+      for (let j = 0; j < 10; j++) {
+        const prevWh = getWorkingHours(machineId, prev, overrides);
+        if (prevWh) {
+          endTarget = setTime(prev, 0, prevWh.end * 60);
+          break;
+        }
+        prev = addDays(prev, -1);
+      }
+    }
+  }
+
+  return null;
 }
 
 /** End-of-day provjera: vraća start nepromijenjeno — calculateEnd rješava multi-day split */
@@ -275,7 +523,7 @@ function scheduleManualOrder(
   }
 
   if (!hasMachine || !hasTrajanje) {
-    return makeResult(order, null, null, "NEMA RASPOREDA");
+    return makeResult(order, null, null, !hasMachine ? "ČEKA PRIPREMU" : "NEMA RASPOREDA");
   }
 
   let start: Date | null = null;
@@ -390,10 +638,18 @@ function calculateDeadline(
   end: Date | null
 ): DeadlineStatus {
   if (!order.rok_isporuke) return end ? "BEZ ROKA" : null;
-  if (!end) return null;
+
   const deadline = parseISO(order.rok_isporuke);
-  const endDay = startOfDay(end);
   const deadlineDay = startOfDay(deadline);
+  const today = startOfDay(new Date());
+
+  // Rok je već istekao ili ističe danas
+  if (!isAfter(deadlineDay, today)) {
+    return "ROK ISTEKAO";
+  }
+
+  if (!end) return null;
+  const endDay = startOfDay(end);
   const bufferDay = startOfDay(prevWorkday(deadline));
 
   if (isAfter(endDay, deadlineDay)) return "KASNI";

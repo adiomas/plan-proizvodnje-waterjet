@@ -24,11 +24,11 @@ export function StatusBar({ scheduled, machines }: StatusBarProps) {
   }
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2 bg-white border-t text-[11px] flex-shrink-0 overflow-x-auto pb-safe">
+    <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-1.5 sm:py-2 bg-white border-t text-[10px] sm:text-[11px] flex-shrink-0 overflow-x-auto lg:pb-safe">
       {machines.map((m) => (
-        <div key={m.id} className="flex items-center gap-1 flex-shrink-0">
+        <div key={m.id} className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
           <span
-            className="w-2 h-2 rounded-full"
+            className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
             style={{ backgroundColor: m.color }}
           />
           <span className="text-gray-500">{m.name}</span>

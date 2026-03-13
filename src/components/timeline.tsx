@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { addDays, startOfDay, getDay, format, differenceInCalendarDays } from "date-fns";
-import type { Machine, ScheduledOrder, MachineOverride } from "@/lib/types";
+import type { Machine, ScheduledOrder, MachineOverride, OvertimeSuggestion } from "@/lib/types";
+import { formatDuration } from "@/components/ui/duration-input";
 import {
   formatDayDate,
   formatDayShort,
@@ -18,11 +19,14 @@ interface TimelineProps {
   scheduled: ScheduledOrder[];
   ganttStartDate: Date;
   hoveredOrderId?: string | null;
+  hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
+  onClickOrder?: (orderId: string) => void;
   onMoveOrder?: (orderId: string, targetDate: string) => void;
   onUnpinOrder?: (orderId: string) => void;
   overrides?: MachineOverride[];
   sirovineEnabled?: boolean;
+  overtimeSuggestions?: OvertimeSuggestion[];
 }
 
 type ZoomLevel = "day" | "week" | "month";
@@ -55,11 +59,14 @@ export function Timeline({
   scheduled,
   ganttStartDate,
   hoveredOrderId,
+  hoveredSplitGroup,
   onHoverOrder,
+  onClickOrder,
   onMoveOrder,
   onUnpinOrder,
   overrides = [],
   sirovineEnabled = false,
+  overtimeSuggestions = [],
 }: TimelineProps) {
   const [zoom, setZoom] = useState<ZoomLevel>("day");
   const [tooltip, setTooltip] = useState<{
@@ -68,6 +75,7 @@ export function Timeline({
     y: number;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dragOccurredRef = useRef(false);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragDeltaPx, setDragDeltaPx] = useState(0);
   const [unpinConfirm, setUnpinConfirm] = useState<{ orderId: string; x: number; y: number } | null>(null);
@@ -113,6 +121,38 @@ export function Timeline({
       return wh !== null && wh.hours > WORK_HOURS;
     });
   }, [ganttStartDate, machines, overrides]);
+
+  // Overtime suggestion lookup: (machineId, dateStr) → suggestion
+  const suggestionMap = useMemo(() => {
+    const map = new Map<string, OvertimeSuggestion>();
+    for (const s of overtimeSuggestions) {
+      map.set(`${s.machine_id}-${s.date}`, s);
+    }
+    return map;
+  }, [overtimeSuggestions]);
+
+  // Set of rn_ids that would be fixed by suggestions
+  const fixableRnIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of overtimeSuggestions) {
+      for (const rn of s.orders_fixed) set.add(rn);
+    }
+    return set;
+  }, [overtimeSuggestions]);
+
+  const dayHasSuggestion = useCallback((dayIdx: number, machineId?: string): OvertimeSuggestion | undefined => {
+    const day = addDays(ganttStartDate, dayIdx);
+    const dateStr = format(day, "yyyy-MM-dd");
+    if (machineId) {
+      return suggestionMap.get(`${machineId}-${dateStr}`);
+    }
+    // Bilo koji stroj
+    for (const m of machines) {
+      const s = suggestionMap.get(`${m.id}-${dateStr}`);
+      if (s) return s;
+    }
+    return undefined;
+  }, [ganttStartDate, machines, suggestionMap]);
 
   // Generiraj dane
   const days = useMemo(() => {
@@ -243,6 +283,7 @@ export function Timeline({
 
   // Je li nalog draggable?
   const canDrag = (s: ScheduledOrder): boolean => {
+    if (s.status === "ZAKAZANO") return false;
     if (s.order.izvedba === "ZAVRŠEN") return false;
     if (s.order.zeljeni_redoslijed !== null) return false;
     return true;
@@ -289,6 +330,8 @@ export function Timeline({
     if (!dragState) return;
 
     if (dragState.isDragging && onMoveOrder) {
+      dragOccurredRef.current = true;
+      setTimeout(() => { dragOccurredRef.current = false; }, 0);
       const targetDate = getDragTargetDate();
       if (targetDate) {
         onMoveOrder(dragState.orderId, targetDate);
@@ -427,6 +470,7 @@ export function Timeline({
                   const weekend = getDay(day) === 0 || getDay(day) === 6;
                   const dp = dayPositions[i];
                   const hasOv = dayHasOverride(i);
+                  const hasSugg = dayHasSuggestion(i);
                   return (
                     <div
                       key={i}
@@ -435,11 +479,19 @@ export function Timeline({
                           ? "bg-gray-100 text-gray-400"
                           : hasOv
                           ? "bg-yellow-50 text-yellow-700"
+                          : hasSugg
+                          ? "text-amber-700"
                           : "text-gray-600"
                       }`}
-                      style={{ width: dp.width }}
+                      style={{
+                        width: dp.width,
+                        ...(hasSugg ? {
+                          background: "repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(245,158,11,0.15) 3px, rgba(245,158,11,0.15) 6px)",
+                        } : {}),
+                      }}
+                      title={hasSugg ? `Predloženi prekovremeni: ${hasSugg.work_start}–${hasSugg.work_end} — popravlja ${hasSugg.orders_fixed.length} naloga` : undefined}
                     >
-                      {formatDayShort(day)}{hasOv ? " ⚡" : ""}
+                      {formatDayShort(day)}{hasOv ? " ⚡" : hasSugg ? " 💡" : ""}
                     </div>
                   );
                 })}
@@ -671,16 +723,20 @@ export function Timeline({
                   if (segments.length === 0) return null;
                   const gaps = getWeekendGaps(segments);
                   const isOverlap = s.status === "PREKLAPANJE";
-                  const barColor = isOverlap ? "#F4CCCC" : machine.color;
-                  const isThisHovered = hoveredOrderId === s.order.id;
-                  const somethingHovered = hoveredOrderId != null;
+                  const isExpired = s.stanje === "ROK ISTEKAO";
+                  const isFixable = (s.stanje === "KASNI" || s.stanje === "KRITIČNO") && fixableRnIds.has(s.order.rn_id);
+                  const barColor = isOverlap ? "#F4CCCC" : isExpired ? "#DC2626" : machine.color;
+                  const isThisHovered = hoveredOrderId === s.order.id
+                    || (!!hoveredSplitGroup && s.order.split_group_id === hoveredSplitGroup);
+                  const somethingHovered = hoveredOrderId != null || hoveredSplitGroup != null;
                   const isBeingDragged = dragState?.orderId === s.order.id && dragState.isDragging;
                   const isPinned = s.order.najraniji_pocetak !== null;
                   const isCeka = sirovineEnabled && s.order.status_sirovine === "CEKA";
+                  const isTentative = s.status === "ZAKAZANO";
                   const draggable = canDrag(s);
 
                   const baseOpacity =
-                    s.order.izvedba === "ZAVRŠEN" ? 0.4 : 0.85;
+                    s.order.izvedba === "ZAVRŠEN" ? 0.4 : isTentative ? 0.3 : 0.85;
                   const opacity = isBeingDragged
                     ? 0.4
                     : somethingHovered
@@ -740,7 +796,7 @@ export function Timeline({
                         <div
                           key={`seg-${si}`}
                           className={`absolute rounded-sm transition-all duration-150 ${
-                            isOverlap ? "border-2 border-red-500" : ""
+                            isOverlap ? "border-2 border-red-500" : isFixable ? "border-2 border-amber-400 animate-pulse" : s.order.hitni_rok ? "border-2 border-red-600" : isTentative ? "border-2 border-dashed" : ""
                           } ${isThisHovered && !isBeingDragged ? "ring-2 ring-blue-400 z-10" : ""} ${
                             draggable && onMoveOrder ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
                           }`}
@@ -751,6 +807,12 @@ export function Timeline({
                             height: isThisHovered && !isBeingDragged ? ROW_HEIGHT - 6 : ROW_HEIGHT - 10,
                             backgroundColor: barColor,
                             opacity,
+                            ...(isTentative ? { borderColor: machine.color } : {}),
+                          }}
+                          onClick={() => {
+                            if (!dragOccurredRef.current) {
+                              onClickOrder?.(s.order.id);
+                            }
                           }}
                           onPointerDown={(e) => {
                             if (si === 0) handlePointerDown(e, s);
@@ -795,7 +857,11 @@ export function Timeline({
                               )}
                               {isPinned && !onUnpinOrder && "⏳ "}
                               {isCeka && "⏳ "}
-                              {totalRight - totalLeft > 40 ? s.order.rn_id : ""}
+                              {totalRight - totalLeft > 40 ? (
+                                s.order.split_label
+                                  ? `${s.order.rn_id} (${s.order.split_label})`
+                                  : s.order.rn_id
+                              ) : ""}
                             </span>
                           )}
                         </div>
@@ -817,8 +883,10 @@ export function Timeline({
           style={{ left: tooltip.x + 12, top: tooltip.y - 60 }}
         >
           <div className="font-bold">
+            {tooltip.order.order.hitni_rok && "🚨 "}
             {tooltip.order.order.najraniji_pocetak !== null && "⏳ "}
             {tooltip.order.order.rn_id}
+            {tooltip.order.order.split_label && ` (Dio ${tooltip.order.order.split_label})`}
           </div>
           {tooltip.order.order.opis && (
             <div className="text-gray-300">
@@ -837,17 +905,39 @@ export function Timeline({
               )}
             </div>
           )}
-          <div>Trajanje: {tooltip.order.order.trajanje_h}h</div>
+          <div>Trajanje: {formatDuration(tooltip.order.order.trajanje_h)}</div>
           {sirovineEnabled && tooltip.order.order.status_sirovine && (
             <div className="text-gray-300">
               Sirovina: {tooltip.order.order.status_sirovine === "IMA" ? "IMA" : tooltip.order.order.status_sirovine === "NEMA" ? "NEMA" : "ČEKA"}
             </div>
           )}
-          {tooltip.order.status !== "OK" && (
+          {tooltip.order.order.hitni_rok && (
+            <div className="text-red-300 font-bold">🚨 Hitni rok: {tooltip.order.order.hitni_rok.split("-").reverse().join(".")}</div>
+          )}
+          {tooltip.order.stanje === "ROK ISTEKAO" && (
+            <div className="text-red-300 font-bold">ROK ISTEKAO</div>
+          )}
+          {tooltip.order.status === "ZAKAZANO" && (
+            <div className="text-blue-300">Tentativni raspored (rok izvan horizonta)</div>
+          )}
+          {tooltip.order.status !== "OK" && tooltip.order.status !== "ZAKAZANO" && (
             <div className="text-red-300 font-bold">
               {tooltip.order.status}
             </div>
           )}
+          {tooltip.order.order.split_group_id && (() => {
+            const sibling = scheduled.find(
+              (s) => s.order.split_group_id === tooltip.order.order.split_group_id
+                && s.order.id !== tooltip.order.order.id
+            );
+            if (!sibling) return null;
+            const sibMachine = machines.find((m) => m.id === sibling.order.machine_id);
+            return (
+              <div className="text-blue-300 text-[9px] mt-0.5">
+                Parnjak: Dio {sibling.order.split_label} na {sibMachine?.name ?? "—"}
+              </div>
+            );
+          })()}
           {tooltip.order.order.najraniji_pocetak !== null && (
             <div className="text-blue-300 text-[9px] mt-0.5">
               Ne prije {tooltip.order.order.najraniji_pocetak} • klikni ⏳ za uklanjanje

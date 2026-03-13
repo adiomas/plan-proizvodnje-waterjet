@@ -32,13 +32,64 @@ export function useWorkOrders() {
     fetchOrders();
   }, [fetchOrders]);
 
-  const addOrder = async (order: NewWorkOrder) => {
+  const addOrder = async (order: NewWorkOrder, splitPartner?: NewWorkOrder) => {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) return;
+    if (!order.rok_isporuke) {
+      console.error("rok_isporuke je obavezan");
+      return null;
+    }
 
     const maxOrder = orders.length > 0
       ? Math.max(...orders.map((o) => o.sort_order))
       : -1;
+
+    if (splitPartner) {
+      const groupId = crypto.randomUUID();
+
+      const { data: dataA, error: errorA } = await supabase
+        .from("excel_work_orders")
+        .insert({
+          ...order,
+          user_id: userData.user.id,
+          sort_order: maxOrder + 1,
+          split_group_id: groupId,
+          split_label: "A",
+        })
+        .select()
+        .single();
+
+      if (errorA) {
+        console.error("Greška pri dodavanju dijela A:", errorA);
+        return null;
+      }
+
+      const { data: dataB, error: errorB } = await supabase
+        .from("excel_work_orders")
+        .insert({
+          ...splitPartner,
+          user_id: userData.user.id,
+          sort_order: maxOrder + 2,
+          split_group_id: groupId,
+          split_label: "B",
+        })
+        .select()
+        .single();
+
+      if (errorB) {
+        console.error("Greška pri dodavanju dijela B:", errorB);
+        // Rollback: obriši dio A
+        await supabase.from("excel_work_orders").delete().eq("id", dataA.id);
+        return null;
+      }
+
+      setOrders((prev) => [
+        ...prev,
+        { ...dataA, trajanje_h: Number(dataA.trajanje_h) || 0 },
+        { ...dataB, trajanje_h: Number(dataB.trajanje_h) || 0 },
+      ]);
+      return dataA;
+    }
 
     const { data, error } = await supabase
       .from("excel_work_orders")
@@ -103,22 +154,73 @@ export function useWorkOrders() {
       console.error("Greška pri ažuriranju naloga:", error);
       return;
     }
+
+    // Sync dijeljenih polja na parnjaka (rok_isporuke, rn_id)
+    const SHARED_FIELDS = ["rok_isporuke", "rn_id"] as const;
+    const order = orders.find((o) => o.id === id);
+    if (order?.split_group_id) {
+      const sharedUpdates: Partial<WorkOrder> = {};
+      for (const f of SHARED_FIELDS) {
+        if (f in updates) {
+          (sharedUpdates as Record<string, unknown>)[f] = (updates as Record<string, unknown>)[f];
+        }
+      }
+      if (Object.keys(sharedUpdates).length > 0) {
+        const sibling = orders.find(
+          (o) => o.split_group_id === order.split_group_id && o.id !== id
+        );
+        if (sibling) {
+          await supabase
+            .from("excel_work_orders")
+            .update({ ...sharedUpdates, updated_at: new Date().toISOString() })
+            .eq("id", sibling.id);
+
+          setOrders((prev) =>
+            prev.map((o) =>
+              o.id === id
+                ? { ...o, ...updates }
+                : o.id === sibling.id
+                ? { ...o, ...sharedUpdates }
+                : o
+            )
+          );
+          return;
+        }
+      }
+    }
+
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, ...updates } : o))
     );
   };
 
   const deleteOrder = async (id: string) => {
-    const { error } = await supabase
-      .from("excel_work_orders")
-      .delete()
-      .eq("id", id);
+    const order = orders.find((o) => o.id === id);
 
-    if (error) {
-      console.error("Greška pri brisanju naloga:", error);
-      return;
+    if (order?.split_group_id) {
+      // Obriši oba dijela split naloga
+      const { error } = await supabase
+        .from("excel_work_orders")
+        .delete()
+        .eq("split_group_id", order.split_group_id);
+
+      if (error) {
+        console.error("Greška pri brisanju split naloga:", error);
+        return;
+      }
+      setOrders((prev) => prev.filter((o) => o.split_group_id !== order.split_group_id));
+    } else {
+      const { error } = await supabase
+        .from("excel_work_orders")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.error("Greška pri brisanju naloga:", error);
+        return;
+      }
+      setOrders((prev) => prev.filter((o) => o.id !== id));
     }
-    setOrders((prev) => prev.filter((o) => o.id !== id));
   };
 
   const reorderOrders = async (reordered: WorkOrder[]) => {
@@ -135,6 +237,119 @@ export function useWorkOrders() {
         .update({ sort_order: u.sort_order })
         .eq("id", u.id);
     }
+  };
+
+  const convertToSplit = async (
+    orderId: string,
+    updatesA: Partial<WorkOrder>,
+    newPartB: NewWorkOrder
+  ): Promise<boolean> => {
+    const orderA = orders.find((o) => o.id === orderId);
+    if (!orderA) return false;
+
+    const groupId = crypto.randomUUID();
+    const maxOrder = orders.length > 0
+      ? Math.max(...orders.map((o) => o.sort_order))
+      : -1;
+
+    // Update A: apply user edits + set split fields
+    const { error: errorA } = await supabase
+      .from("excel_work_orders")
+      .update({
+        ...updatesA,
+        split_group_id: groupId,
+        split_label: "A",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId);
+
+    if (errorA) {
+      console.error("Greška pri konverziji A u split:", errorA);
+      return false;
+    }
+
+    // Insert B
+    const { data: dataB, error: errorB } = await supabase
+      .from("excel_work_orders")
+      .insert({
+        ...newPartB,
+        user_id: orderA.user_id,
+        split_group_id: groupId,
+        split_label: "B",
+        sort_order: maxOrder + 1,
+      })
+      .select()
+      .single();
+
+    if (errorB) {
+      console.error("Greška pri kreiranju dijela B:", errorB);
+      // Rollback A
+      await supabase
+        .from("excel_work_orders")
+        .update({ split_group_id: null, split_label: null, updated_at: new Date().toISOString() })
+        .eq("id", orderId);
+      return false;
+    }
+
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? { ...o, ...updatesA, split_group_id: groupId, split_label: "A" as const }
+          : o
+      ).concat({ ...dataB, trajanje_h: Number(dataB.trajanje_h) || 0 })
+    );
+    return true;
+  };
+
+  const convertToSingle = async (
+    orderId: string,
+    updatesA: Partial<WorkOrder>
+  ): Promise<boolean> => {
+    const orderA = orders.find((o) => o.id === orderId);
+    if (!orderA?.split_group_id) return false;
+
+    const sibling = orders.find(
+      (o) => o.split_group_id === orderA.split_group_id && o.id !== orderId
+    );
+    if (!sibling) return false;
+
+    // Delete B
+    const { error: errorDel } = await supabase
+      .from("excel_work_orders")
+      .delete()
+      .eq("id", sibling.id);
+
+    if (errorDel) {
+      console.error("Greška pri brisanju dijela B:", errorDel);
+      return false;
+    }
+
+    // Update A: apply user edits + clear split fields
+    const { error: errorUpd } = await supabase
+      .from("excel_work_orders")
+      .update({
+        ...updatesA,
+        split_group_id: null,
+        split_label: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId);
+
+    if (errorUpd) {
+      console.error("Greška pri ažuriranju A nakon unsplit:", errorUpd);
+      return false;
+    }
+
+    setOrders((prev) =>
+      prev
+        .filter((o) => o.id !== sibling.id)
+        .map((o) =>
+          o.id === orderId
+            ? { ...o, ...updatesA, split_group_id: null, split_label: null }
+            : o
+        )
+    );
+    return true;
   };
 
   const updateSirovine = async (id: string, newStatus: "IMA" | "NEMA" | null) => {
@@ -160,6 +375,8 @@ export function useWorkOrders() {
     deleteOrder,
     reorderOrders,
     updateSirovine,
+    convertToSplit,
+    convertToSingle,
     refetch: fetchOrders,
   };
 }

@@ -171,14 +171,16 @@ function DaySection({
 
           {segments.map((seg, i) => {
             const isCritical =
-              seg.order.stanje === "KRITIČNO" || seg.order.stanje === "KASNI";
+              seg.order.stanje === "KRITIČNO" || seg.order.stanje === "KASNI" || seg.order.stanje === "ROK ISTEKAO";
             const rowStyle = isCritical ? s.tableRowHighlight : s.tableRow;
             const cellStyle = isCritical ? s.tdBold : s.td;
 
             return (
               <View key={`${seg.order.order.id}-${i}`} style={rowStyle}>
                 <Text style={[s.tdBold, { width: WEEKLY_COLS.rnId }]}>
+                  {seg.order.order.hitni_rok ? "🚨 " : ""}
                   {seg.order.order.rn_id}
+                  {seg.order.order.split_label ? ` (${seg.order.order.split_label})` : ""}
                 </Text>
                 <Text style={[s.td, { width: WEEKLY_COLS.opis }]}>
                   {seg.order.order.opis || "—"}

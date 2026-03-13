@@ -35,7 +35,18 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname !== "/"
   ) {
     const url = request.nextUrl.clone();
+    const redirectTo = request.nextUrl.pathname + request.nextUrl.search;
     url.pathname = "/login";
+    url.searchParams.set("redirectTo", redirectTo);
+    return NextResponse.redirect(url);
+  }
+
+  // Ako je korisnik prijavljen i pokušava otvoriti /login, preusmjeri na dashboard
+  if (user && request.nextUrl.pathname.startsWith("/login")) {
+    const url = request.nextUrl.clone();
+    const redirectTo = request.nextUrl.searchParams.get("redirectTo");
+    url.pathname = redirectTo || "/dashboard";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 

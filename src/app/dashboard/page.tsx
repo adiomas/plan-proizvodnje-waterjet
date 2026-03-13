@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { startOfDay } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
@@ -9,15 +9,22 @@ import { useWorkOrders } from "@/hooks/use-work-orders";
 import { computeSchedule } from "@/lib/scheduler";
 import { WorkOrdersView, ColumnToggle, TOGGLEABLE_COLUMNS, DEFAULT_COLUMN_VISIBILITY } from "@/components/work-orders-table";
 import type { VisibilityState } from "@tanstack/react-table";
+import type { WorkOrder } from "@/lib/types";
 import { Timeline } from "@/components/timeline";
 import { MachineDialog } from "@/components/machine-dialog";
 import { NewOrderSheet } from "@/components/new-order-dialog";
+import { EditOrderDialog } from "@/components/edit-order-dialog";
 import { StatusBar } from "@/components/status-bar";
 import { SchedulingInfoModal } from "@/components/scheduling-info-modal";
 import { ExportMenu } from "@/components/export-menu";
 import { useOverrides } from "@/hooks/use-overrides";
 import { useUserRole } from "@/hooks/use-user-role";
 import { OverrideModal } from "@/components/override-modal";
+import { useOvertimeSuggestions } from "@/hooks/use-overtime-suggestions";
+import { OvertimePanel } from "@/components/overtime-panel";
+import { PwaRefreshButton } from "@/components/pwa-refresh-button";
+import { BottomNavbar } from "@/components/bottom-navbar";
+import type { OvertimeSuggestion } from "@/lib/types";
 
 type Tab = "nalozi" | "gant";
 
@@ -37,6 +44,8 @@ export default function DashboardPage() {
     addOrder,
     updateOrder,
     deleteOrder,
+    convertToSplit,
+    convertToSingle,
   } = useWorkOrders();
   const {
     overrides,
@@ -63,10 +72,15 @@ export default function DashboardPage() {
   const [showOverrides, setShowOverrides] = useState(false);
   const [filterMachine, setFilterMachine] = useState("");
   const [filterIzvedba, setFilterIzvedba] = useState("");
+  const [filterHitniRok, setFilterHitniRok] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [hoveredOrderId, setHoveredOrderId] = useState<string | null>(null);
+  const [hoveredSplitGroup, setHoveredSplitGroup] = useState<string | null>(null);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY);
+  const [editingOrder, setEditingOrder] = useState<WorkOrder | null>(null);
+  const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
+  const [showOvertimePopover, setShowOvertimePopover] = useState(false);
 
   const ganttStartDate = useMemo(() => startOfDay(new Date()), []);
 
@@ -76,6 +90,34 @@ export default function DashboardPage() {
     return computeSchedule(orders, machines, ganttStartDate, overrides, sirovineEnabled);
   }, [orders, machines, ganttStartDate, overrides, sirovineEnabled]);
 
+  // Overtime suggestions
+  const overtimeResult = useOvertimeSuggestions(
+    scheduleResult.scheduled,
+    orders,
+    machines,
+    overrides,
+    ganttStartDate,
+    sirovineEnabled
+  );
+
+  const handleApproveOvertime = useCallback(async (s: OvertimeSuggestion): Promise<string | null> => {
+    const override = await addOverride(s.machine_id, s.date, s.work_start, s.work_end);
+    return override?.id ?? null;
+  }, [addOverride]);
+
+  const handleApproveAllOvertime = useCallback(async (suggestions: OvertimeSuggestion[]): Promise<(string | null)[]> => {
+    const ids: (string | null)[] = [];
+    for (const s of suggestions) {
+      const override = await addOverride(s.machine_id, s.date, s.work_start, s.work_end);
+      ids.push(override?.id ?? null);
+    }
+    return ids;
+  }, [addOverride]);
+
+  const handleUndoApproveOvertime = useCallback(async (overrideId: string) => {
+    await deleteOverride(overrideId);
+  }, [deleteOverride]);
+
   // Filtrirani nalozi
   const filteredOrders = useMemo(() => {
     let result = orders;
@@ -83,6 +125,8 @@ export default function DashboardPage() {
       result = result.filter((o) => o.machine_id === filterMachine);
     if (filterIzvedba)
       result = result.filter((o) => o.izvedba === filterIzvedba);
+    if (filterHitniRok)
+      result = result.filter((o) => !!o.hitni_rok);
     if (sirovineEnabled && filterSirovine) {
       if (filterSirovine === "null") {
         result = result.filter((o) => o.status_sirovine === null);
@@ -104,7 +148,7 @@ export default function DashboardPage() {
       });
     }
     return result;
-  }, [orders, machines, filterMachine, filterIzvedba, filterSirovine, sirovineEnabled, searchQuery]);
+  }, [orders, machines, filterMachine, filterIzvedba, filterHitniRok, filterSirovine, sirovineEnabled, searchQuery]);
 
   // Filtrirani scheduled
   const filteredScheduled = useMemo(() => {
@@ -113,8 +157,10 @@ export default function DashboardPage() {
       result = result.filter((s) => s.order.machine_id === filterMachine);
     if (filterIzvedba)
       result = result.filter((s) => s.order.izvedba === filterIzvedba);
+    if (filterHitniRok)
+      result = result.filter((s) => !!s.order.hitni_rok);
     return result;
-  }, [scheduleResult.scheduled, filterMachine, filterIzvedba]);
+  }, [scheduleResult.scheduled, filterMachine, filterIzvedba, filterHitniRok]);
 
   // Quick stats
   const overlapCount = scheduleResult.scheduled.filter(
@@ -126,7 +172,37 @@ export default function DashboardPage() {
   const criticalCount = scheduleResult.scheduled.filter(
     (s) => s.stanje === "KRITIČNO"
   ).length;
+  const expiredCount = scheduleResult.scheduled.filter(
+    (s) => s.stanje === "ROK ISTEKAO"
+  ).length;
+  const hitniRokCount = orders.filter((o) => o.hitni_rok).length;
   const activeCount = orders.filter((o) => o.izvedba !== "ZAVRŠEN").length;
+
+  const handleHoverOrder = (id: string | null) => {
+    if (!id) {
+      setHoveredOrderId(null);
+      setHoveredSplitGroup(null);
+      return;
+    }
+    setHoveredOrderId(id);
+    const order = orders.find((o) => o.id === id);
+    setHoveredSplitGroup(order?.split_group_id ?? null);
+  };
+
+  const handleEditOrder = (order: WorkOrder) => {
+    setEditingOrder(order);
+  };
+
+  const handleClickOrder = useCallback((id: string) => {
+    setFocusedOrderId(null);
+    requestAnimationFrame(() => setFocusedOrderId(id));
+  }, []);
+
+  const editingSplitSibling = editingOrder?.split_group_id
+    ? orders.find(
+        (o) => o.split_group_id === editingOrder.split_group_id && o.id !== editingOrder.id
+      ) ?? null
+    : null;
 
   const handleMoveOrder = async (orderId: string, targetDate: string) => {
     await updateOrder(orderId, { najraniji_pocetak: targetDate });
@@ -142,7 +218,7 @@ export default function DashboardPage() {
     router.refresh();
   };
 
-  const hasActiveFilters = !!(filterMachine || filterIzvedba || filterSirovine);
+  const hasActiveFilters = !!(filterMachine || filterIzvedba || filterSirovine || filterHitniRok);
 
   if (machinesLoading || ordersLoading || overridesLoading || roleLoading) {
     return (
@@ -158,9 +234,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-white">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-white pb-navbar lg:pb-0">
       {/* ======== HEADER ======== */}
-      <header className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
+      <header className="bg-white border-b border-gray-200 px-3 py-1.5 sm:py-2.5 pt-safe hidden lg:flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-md bg-gray-900 flex items-center justify-center flex-shrink-0">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -200,10 +276,12 @@ export default function DashboardPage() {
               Sirovine
             </button>
           )}
+          {/* PWA refresh button — standalone only */}
+          <PwaRefreshButton />
           {/* Info button */}
           <button
             onClick={() => setShowInfo(true)}
-            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             title="Upute"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -227,6 +305,35 @@ export default function DashboardPage() {
             <span className="hidden sm:inline-flex text-[10px] bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium border border-yellow-200">
               {criticalCount} kritično
             </span>
+          )}
+          {expiredCount > 0 && (
+            <span className="hidden sm:inline-flex text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-300">
+              {expiredCount} istekao
+            </span>
+          )}
+          {hitniRokCount > 0 && (
+            <span className="hidden sm:inline-flex text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
+              {hitniRokCount} hitni rok
+            </span>
+          )}
+          {/* Overtime popover — admin only */}
+          {role === "admin" && overtimeResult.fixable_count > 0 && (
+            <div className="relative hidden sm:block">
+              <button
+                onClick={() => setShowOvertimePopover(!showOvertimePopover)}
+                className="inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-medium border border-amber-200 hover:bg-amber-100 transition-colors"
+              >
+                💡 {overtimeResult.fixable_count}
+              </button>
+              <OvertimePanel
+                result={overtimeResult}
+                open={showOvertimePopover}
+                onClose={() => setShowOvertimePopover(false)}
+                onApprove={handleApproveOvertime}
+                onApproveAll={handleApproveAllOvertime}
+                onUndoApprove={handleUndoApproveOvertime}
+              />
+            </div>
           )}
           {/* Override modal button — admin only */}
           {role === "admin" && (
@@ -289,40 +396,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ======== MOBILE: Tab bar ======== */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
-        <div className="relative flex bg-gray-100 rounded-md p-0.5 max-w-[240px]">
-          <div
-            className="absolute top-0.5 bottom-0.5 bg-white rounded shadow-sm transition-transform duration-200 ease-out"
-            style={{
-              width: "50%",
-              transform:
-                activeTab === "nalozi"
-                  ? "translateX(0)"
-                  : "translateX(100%)",
-            }}
-          />
-          <button
-            onClick={() => setActiveTab("nalozi")}
-            className={`relative z-10 flex-1 text-xs font-medium py-1.5 rounded text-center transition-colors ${
-              activeTab === "nalozi" ? "text-gray-900" : "text-gray-400"
-            }`}
-          >
-            Nalozi
-            <span className="ml-1 text-[10px] tabular-nums opacity-50">
-              {activeCount}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab("gant")}
-            className={`relative z-10 flex-1 text-xs font-medium py-1.5 rounded text-center transition-colors ${
-              activeTab === "gant" ? "text-gray-900" : "text-gray-400"
-            }`}
-          >
-            Gant
-          </button>
-        </div>
-      </div>
 
       {/* ======== DESKTOP CONTENT ======== */}
       <div className="hidden lg:flex lg:flex-col flex-1 min-h-0 overflow-hidden">
@@ -411,8 +484,18 @@ export default function DashboardPage() {
                   <option value="null">NEPROVJERENO</option>
                 </select>
               )}
+              <button
+                onClick={() => setFilterHitniRok(!filterHitniRok)}
+                className={`text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors ${
+                  filterHitniRok
+                    ? "bg-red-50 border-red-300 text-red-700"
+                    : "border-gray-200 text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                🚨 Hitni rok
+              </button>
               {hasActiveFilters && (
-                <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); setFilterSirovine(""); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
+                <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); setFilterSirovine(""); setFilterHitniRok(false); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
                   Očisti
                 </button>
               )}
@@ -425,8 +508,11 @@ export default function DashboardPage() {
               scheduled={filteredScheduled}
               onUpdate={updateOrder}
               onDelete={deleteOrder}
+              onEdit={handleEditOrder}
               hoveredOrderId={hoveredOrderId}
-              onHoverOrder={setHoveredOrderId}
+              hoveredSplitGroup={hoveredSplitGroup}
+              onHoverOrder={handleHoverOrder}
+              focusedOrderId={focusedOrderId}
               columnVisibility={columnVisibility}
               onColumnVisibilityChange={setColumnVisibility}
               canEdit={canEdit}
@@ -443,11 +529,14 @@ export default function DashboardPage() {
             scheduled={scheduleResult.scheduled}
             ganttStartDate={ganttStartDate}
             hoveredOrderId={hoveredOrderId}
-            onHoverOrder={setHoveredOrderId}
+            hoveredSplitGroup={hoveredSplitGroup}
+            onHoverOrder={handleHoverOrder}
+            onClickOrder={handleClickOrder}
             onMoveOrder={handleMoveOrder}
             onUnpinOrder={handleUnpinOrder}
             overrides={overrides}
             sirovineEnabled={sirovineEnabled}
+            overtimeSuggestions={role === "admin" ? overtimeResult.suggestions : []}
           />
         </div>
       </div>
@@ -456,10 +545,10 @@ export default function DashboardPage() {
       <div className="lg:hidden flex-1 min-h-0 overflow-hidden">
         {activeTab === "nalozi" ? (
           <div className="h-full flex flex-col">
-            <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0 bg-white border-b border-gray-100">
+            <div className="px-2 py-1.5 flex items-center gap-1.5 flex-shrink-0 bg-white border-b border-gray-100">
               <div className="relative flex-1">
                 <svg
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-300 pointer-events-none"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-300 pointer-events-none"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -475,7 +564,7 @@ export default function DashboardPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Pretraži naloge..."
-                  className="w-full text-xs border border-gray-200 rounded-md px-2.5 py-2 pl-8 focus:outline-none focus:ring-2 focus:ring-gray-900/5 focus:border-gray-300 bg-white placeholder:text-gray-300"
+                  className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 pl-7 focus:outline-none focus:ring-2 focus:ring-gray-900/5 focus:border-gray-300 bg-white placeholder:text-gray-300"
                 />
                 {searchQuery && (
                   <button
@@ -491,7 +580,7 @@ export default function DashboardPage() {
               </div>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`p-2 rounded-md border transition-colors ${
+                className={`p-1.5 rounded-md border transition-colors ${
                   showFilters || hasActiveFilters
                     ? "bg-gray-900 border-gray-900 text-white"
                     : "border-gray-200 text-gray-400 hover:text-gray-600"
@@ -518,8 +607,27 @@ export default function DashboardPage() {
                   <option value="U TIJEKU">U TIJEKU</option>
                   <option value="ZAVRŠEN">ZAVRŠEN</option>
                 </select>
+                {sirovineEnabled && (
+                  <select value={filterSirovine} onChange={(e) => setFilterSirovine(e.target.value)} className="text-xs border border-gray-200 rounded-md px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/5">
+                    <option value="">Sve sirovine</option>
+                    <option value="IMA">IMA</option>
+                    <option value="NEMA">NEMA</option>
+                    <option value="CEKA">ČEKA</option>
+                    <option value="null">NEPROVJERENO</option>
+                  </select>
+                )}
+                <button
+                  onClick={() => setFilterHitniRok(!filterHitniRok)}
+                  className={`text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors ${
+                    filterHitniRok
+                      ? "bg-red-50 border-red-300 text-red-700"
+                      : "border-gray-200 text-gray-400 hover:text-gray-600"
+                  }`}
+                >
+                  🚨 Hitni rok
+                </button>
                 {hasActiveFilters && (
-                  <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
+                  <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); setFilterSirovine(""); setFilterHitniRok(false); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
                     Očisti
                   </button>
                 )}
@@ -533,6 +641,8 @@ export default function DashboardPage() {
                 scheduled={filteredScheduled}
                 onUpdate={updateOrder}
                 onDelete={deleteOrder}
+                onEdit={handleEditOrder}
+                focusedOrderId={focusedOrderId}
                 canEdit={canEdit}
                 canDelete={canDelete}
                 canReorder={canReorder}
@@ -547,9 +657,11 @@ export default function DashboardPage() {
               machines={machines}
               scheduled={scheduleResult.scheduled}
               ganttStartDate={ganttStartDate}
+              onClickOrder={handleClickOrder}
               onMoveOrder={handleMoveOrder}
               onUnpinOrder={handleUnpinOrder}
               overrides={overrides}
+              overtimeSuggestions={role === "admin" ? overtimeResult.suggestions : []}
             />
           </div>
         )}
@@ -558,29 +670,46 @@ export default function DashboardPage() {
       {/* ======== STATUS BAR ======== */}
       <StatusBar scheduled={scheduleResult.scheduled} machines={machines} />
 
-      {/* ======== FAB — Add Order (mobile only, admin only) ======== */}
-      {canAdd() && (
-        <button
-          onClick={() => setShowNewOrder(true)}
-          className="lg:hidden fixed z-40 w-12 h-12 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-900/20 flex items-center justify-center hover:bg-gray-800 active:scale-95 transition-all"
-          style={{
-            right: 16,
-            bottom: `calc(3rem + env(safe-area-inset-bottom, 0px))`,
-          }}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
+
+      {/* ======== BOTTOM NAVBAR (mobile only) ======== */}
+      <BottomNavbar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onAddClick={() => setShowNewOrder(true)}
+        canAdd={canAdd()}
+        role={role}
+        activeOrderCount={activeCount}
+        overlapCount={overlapCount}
+        lateCount={lateCount}
+        criticalCount={criticalCount}
+        expiredCount={expiredCount}
+        hitniRokCount={hitniRokCount}
+        sirovineEnabled={sirovineEnabled}
+        onToggleSirovine={toggleSirovine}
+        overtimeFixableCount={overtimeResult.fixable_count}
+        onShowOvertime={() => setShowOvertimePopover(true)}
+        overridesCount={overrides.length}
+        onShowOverrides={() => setShowOverrides(true)}
+        onShowMachines={() => setShowMachineDialog(true)}
+        machines={machines}
+        scheduled={scheduleResult.scheduled}
+        overrides={overrides}
+        onShowInfo={() => setShowInfo(true)}
+        onLogout={handleLogout}
+      />
+
+      {/* ======== MOBILE: Overtime Panel (triggered from BottomNavbar) ======== */}
+      {role === "admin" && overtimeResult.fixable_count > 0 && (
+        <div className="sm:hidden">
+          <OvertimePanel
+            result={overtimeResult}
+            open={showOvertimePopover}
+            onClose={() => setShowOvertimePopover(false)}
+            onApprove={handleApproveOvertime}
+            onApproveAll={handleApproveAllOvertime}
+            onUndoApprove={handleUndoApproveOvertime}
+          />
+        </div>
       )}
 
       {/* ======== BOTTOM SHEET: New Order ======== */}
@@ -588,7 +717,8 @@ export default function DashboardPage() {
         open={showNewOrder}
         onClose={() => setShowNewOrder(false)}
         machines={machines}
-        onAdd={addOrder}
+        onAdd={(order, splitPartner) => addOrder(order, splitPartner)}
+        role={role}
       />
 
       {/* ======== Machine Dialog ======== */}
@@ -613,6 +743,23 @@ export default function DashboardPage() {
         onAdd={addOverride}
         onDelete={deleteOverride}
       />
+
+      {/* ======== Edit Order Dialog ======== */}
+      {editingOrder && (
+        <EditOrderDialog
+          key={editingOrder.id}
+          open={!!editingOrder}
+          onClose={() => setEditingOrder(null)}
+          order={editingOrder}
+          splitSibling={editingSplitSibling}
+          machines={machines}
+          onUpdate={updateOrder}
+          onConvertToSplit={convertToSplit}
+          onConvertToSingle={convertToSingle}
+          canEdit={canEdit}
+          role={role}
+        />
+      )}
     </div>
   );
 }

@@ -14,6 +14,8 @@ import {
 import type { Machine, WorkOrder, ScheduledOrder, StatusSirovine, UserRole } from "@/lib/types";
 import { formatDayDate, formatTime } from "@/lib/utils";
 import { DateInput } from "@/components/ui/date-input";
+import { DurationInput, formatDuration } from "@/components/ui/duration-input";
+import { parseISO, startOfDay, isAfter } from "date-fns";
 
 interface WorkOrdersViewProps {
   orders: WorkOrder[];
@@ -21,8 +23,11 @@ interface WorkOrdersViewProps {
   scheduled: ScheduledOrder[];
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onEdit?: (order: WorkOrder) => void;
   hoveredOrderId?: string | null;
+  hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
+  focusedOrderId?: string | null;
   columnVisibility?: VisibilityState;
   onColumnVisibilityChange?: OnChangeFn<VisibilityState>;
   canEdit?: (field?: string) => boolean;
@@ -35,12 +40,14 @@ interface WorkOrdersViewProps {
 /* Exported column metadata for external ColumnToggle rendering */
 export const TOGGLEABLE_COLUMNS = [
   { id: "rn_id", header: "RN ID" },
+  { id: "split_label", header: "Dio" },
   { id: "opis", header: "Opis" },
   { id: "napomena", header: "Napomena" },
+  { id: "hitni_rok", header: "Hitni rok" },
   { id: "rok_isporuke", header: "Rok" },
   { id: "status_sirovine", header: "Sirovine" },
   { id: "machine_id", header: "Stroj" },
-  { id: "trajanje_h", header: "Trajanje (h)" },
+  { id: "trajanje_h", header: "Trajanje" },
   { id: "zeljeni_redoslijed", header: "Redoslijed" },
   { id: "najraniji_pocetak", header: "Početak od" },
   { id: "start", header: "Početak" },
@@ -54,6 +61,7 @@ export const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
   napomena: false,
   najraniji_pocetak: false,
   status_sirovine: false,
+  split_label: false,
 };
 
 /* ================================================================
@@ -96,6 +104,10 @@ function StatusBadge({ status }: { status: string }) {
       ? "bg-amber-50 text-amber-600"
       : status === "NEMA RASPOREDA"
       ? "bg-gray-100 text-gray-500"
+      : status === "ČEKA PRIPREMU"
+      ? "bg-yellow-100 text-yellow-700 border border-yellow-300"
+      : status === "ZAKAZANO"
+      ? "bg-blue-100 text-blue-700 border border-blue-300"
       : status === "NEPROVJERENO"
       ? "bg-yellow-50 text-yellow-600"
       : status === "NEMA SIROVINE"
@@ -142,7 +154,9 @@ function SirovinaBadge({
 
 function StanjeBadge({ stanje }: { stanje: string }) {
   const style =
-    stanje === "KASNI"
+    stanje === "ROK ISTEKAO"
+      ? "bg-red-100 text-red-700 border border-red-300 font-bold"
+      : stanje === "KASNI"
       ? "bg-red-50 text-red-600"
       : stanje === "KRITIČNO"
       ? "bg-yellow-50 text-yellow-700"
@@ -166,6 +180,7 @@ function OrderCard({
   sched,
   onUpdate,
   onDelete,
+  onEdit,
   canEdit,
   canDelete,
   sirovineEnabled,
@@ -176,6 +191,7 @@ function OrderCard({
   sched: ScheduledOrder | undefined;
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onEdit?: (order: WorkOrder) => void;
   canEdit?: (field?: string) => boolean;
   canDelete?: () => boolean;
   sirovineEnabled?: boolean;
@@ -184,6 +200,7 @@ function OrderCard({
   const isOverlap = sched?.status === "PREKLAPANJE";
   const isLate = sched?.stanje === "KASNI";
   const isCritical = sched?.stanje === "KRITIČNO";
+  const isExpired = sched?.stanje === "ROK ISTEKAO";
   const isDone = order.izvedba === "ZAVRŠEN";
   const isSirovineNema = sirovineEnabled && order.status_sirovine === "NEMA";
   const isSirovineNull = sirovineEnabled && order.status_sirovine === null;
@@ -216,13 +233,15 @@ function OrderCard({
 
   return (
     <div
-      className={`mx-3 mb-2 rounded-lg border overflow-hidden transition-all ${
+      className={`mx-2 mb-1.5 rounded-lg border overflow-hidden transition-all ${
         isSirovineNema
           ? "border-red-200 bg-red-50/40"
           : isSirovineNull
           ? "border-yellow-200 bg-yellow-50/30"
           : isOverlap
           ? "border-red-200 bg-red-50/40"
+          : isExpired
+          ? "border-red-500 bg-red-50 shadow-sm"
           : isLate
           ? "border-amber-200 bg-amber-50/30"
           : isCritical
@@ -235,21 +254,65 @@ function OrderCard({
           className="w-0.5 flex-shrink-0"
           style={{ backgroundColor: machine?.color ?? "#D1D5DB" }}
         />
-        <div className="flex-1 px-3 py-2.5 min-w-0">
-          <div className="flex items-center justify-between gap-2">
+        <div className="flex-1 px-2.5 py-1.5 min-w-0">
+          {/* Row 1: RN ID + duration + actions */}
+          <div className="flex items-center gap-1.5">
             <span className="font-semibold text-[13px] text-gray-900 truncate">
+              {order.hitni_rok && <span className="mr-0.5" title="Hitni rok">🚨</span>}
               {order.rn_id}
+              {order.split_label && <span className="text-[10px] font-bold text-gray-400 ml-0.5">({order.split_label})</span>}
             </span>
-            <span className="text-[11px] text-gray-400 tabular-nums flex-shrink-0">
-              {order.trajanje_h}h
+            <span className="text-[10px] text-gray-400 tabular-nums flex-shrink-0">
+              {formatDuration(order.trajanje_h)}
             </span>
+            <div className="flex-1" />
+            <button
+              onClick={cycleIzvedba}
+              disabled={!canEdit?.("izvedba")}
+              className={`text-[10px] font-medium px-2 py-0.5 rounded border active:scale-95 transition-transform ${
+                order.izvedba === "PLANIRAN"
+                  ? "bg-white border-gray-200 text-gray-500"
+                  : order.izvedba === "U TIJEKU"
+                  ? "bg-gray-900 border-gray-900 text-white"
+                  : "bg-gray-100 border-gray-200 text-gray-400"
+              } ${!canEdit?.("izvedba") ? "opacity-50" : ""}`}
+            >
+              {order.izvedba}
+            </button>
+            {canEdit?.() && onEdit && (
+              <button
+                onClick={() => onEdit(order)}
+                className="text-gray-300 active:text-blue-500 p-0.5"
+                title="Uredi nalog"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                  <path d="m15 5 4 4" />
+                </svg>
+              </button>
+            )}
+            {canDelete?.() !== false && (
+              <button
+                onClick={() => {
+                  if (order.split_group_id) {
+                    if (confirm("Obriši oba dijela split naloga?")) {
+                      onDelete(order.id);
+                    }
+                  } else {
+                    onDelete(order.id);
+                  }
+                }}
+                className="text-gray-200 active:text-red-500 p-0.5 -mr-0.5"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </button>
+            )}
           </div>
-          {order.opis && (
-            <p className="text-[11px] text-gray-500 truncate mt-0.5 leading-snug">
-              {order.opis}
-            </p>
-          )}
-          <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-gray-400 flex-wrap">
+          {/* Row 2: Machine + dates (single line) */}
+          <div className="flex items-center gap-1 mt-0.5 text-[10px] text-gray-400">
             <span className="font-medium text-gray-500">
               {machine?.name ?? "—"}
             </span>
@@ -270,7 +333,13 @@ function OrderCard({
               </>
             )}
           </div>
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          {order.opis && (
+            <p className="text-[10px] text-gray-500 truncate mt-0.5 leading-tight">
+              {order.opis}
+            </p>
+          )}
+          {/* Row 3: Badges (compact) */}
+          <div className="flex items-center gap-1 mt-1 flex-wrap">
             {sirovineEnabled && (
               <SirovinaBadge
                 status={order.status_sirovine}
@@ -279,31 +348,6 @@ function OrderCard({
             )}
             {sched && <StatusBadge status={sched.status} />}
             {sched?.stanje && <StanjeBadge stanje={sched.stanje} />}
-            <div className="flex-1" />
-            <button
-              onClick={cycleIzvedba}
-              disabled={!canEdit?.("izvedba")}
-              className={`text-[10px] font-medium px-2.5 py-1 rounded border active:scale-95 transition-transform ${
-                order.izvedba === "PLANIRAN"
-                  ? "bg-white border-gray-200 text-gray-500"
-                  : order.izvedba === "U TIJEKU"
-                  ? "bg-gray-900 border-gray-900 text-white"
-                  : "bg-gray-100 border-gray-200 text-gray-400"
-              } ${!canEdit?.("izvedba") ? "opacity-50" : ""}`}
-            >
-              {order.izvedba}
-            </button>
-            {canDelete?.() !== false && (
-              <button
-                onClick={() => onDelete(order.id)}
-                className="text-gray-200 active:text-red-500 p-1 -mr-1"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -326,7 +370,7 @@ function EditableCell({
   value: string;
   displayValue?: string;
   onSave: (v: string) => void;
-  type?: "text" | "number" | "date" | "select";
+  type?: "text" | "number" | "date" | "select" | "duration";
   options?: { value: string; label: string }[];
   disabled?: boolean;
 }) {
@@ -376,6 +420,15 @@ function EditableCell({
             </option>
           ))}
         </select>
+      );
+    }
+    if (type === "duration") {
+      return (
+        <DurationInput
+          value={draft}
+          onChange={(v) => { setDraft(v); onSave(v); setEditing(false); }}
+          className="w-full bg-white border border-gray-300 rounded px-1 py-0.5 text-xs"
+        />
       );
     }
     if (isDate) {
@@ -542,8 +595,11 @@ function DesktopTable({
   scheduleMap,
   onUpdate,
   onDelete,
+  onEdit,
   hoveredOrderId,
+  hoveredSplitGroup,
   onHoverOrder,
+  focusedOrderId,
   columnVisibility,
   onColumnVisibilityChange,
   canEdit,
@@ -557,8 +613,11 @@ function DesktopTable({
   scheduleMap: Map<string, ScheduledOrder>;
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onEdit?: (order: WorkOrder) => void;
   hoveredOrderId?: string | null;
+  hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
+  focusedOrderId?: string | null;
   columnVisibility: VisibilityState;
   onColumnVisibilityChange: OnChangeFn<VisibilityState>;
   canEdit?: (field?: string) => boolean;
@@ -567,6 +626,22 @@ function DesktopTable({
   role?: UserRole;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!focusedOrderId || !scrollContainerRef.current) return;
+    const tr = scrollContainerRef.current.querySelector(
+      `tr[data-order-id="${focusedOrderId}"]`
+    );
+    if (!tr) return;
+
+    tr.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    tr.classList.add("row-focus-pulse");
+    const cleanup = () => tr.classList.remove("row-focus-pulse");
+    tr.addEventListener("animationend", cleanup, { once: true });
+    setTimeout(cleanup, 2500);
+  }, [focusedOrderId]);
 
   const handleFieldUpdate = useCallback(
     (orderId: string, field: keyof WorkOrder, rawValue: string) => {
@@ -575,7 +650,7 @@ function DesktopTable({
         value = parseFloat(rawValue) || 0;
       } else if (field === "zeljeni_redoslijed") {
         value = rawValue ? parseInt(rawValue) : null;
-      } else if (field === "rok_isporuke" || field === "najraniji_pocetak") {
+      } else if (field === "rok_isporuke" || field === "najraniji_pocetak" || field === "hitni_rok") {
         value = rawValue || null;
       } else if (field === "opis" || field === "napomena") {
         value = rawValue || null;
@@ -590,14 +665,32 @@ function DesktopTable({
       {
         accessorKey: "rn_id",
         header: "RN ID",
-        size: 80,
+        size: 100,
         enableSorting: true,
         cell: ({ row }) => (
-          <EditableCell
-            value={row.original.rn_id}
-            onSave={(v) => handleFieldUpdate(row.original.id, "rn_id", v)}
-            disabled={!canEdit?.("rn_id")}
-          />
+          <div className="flex items-center gap-1">
+            <EditableCell
+              value={row.original.rn_id}
+              onSave={(v) => handleFieldUpdate(row.original.id, "rn_id", v)}
+              disabled={!canEdit?.("rn_id")}
+            />
+            {row.original.split_label && (
+              <span className="text-[9px] font-bold text-gray-400 flex-shrink-0" title="Split nalog">
+                ({row.original.split_label})
+              </span>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "split_label",
+        header: "Dio",
+        size: 40,
+        enableSorting: true,
+        cell: ({ row }) => (
+          <span className="text-[10px] text-gray-500">
+            {row.original.split_label ?? "—"}
+          </span>
         ),
       },
       {
@@ -625,6 +718,39 @@ function DesktopTable({
             disabled={!canEdit?.("napomena")}
           />
         ),
+      },
+      {
+        id: "hitni_rok",
+        accessorKey: "hitni_rok",
+        header: "Hitni rok",
+        size: 100,
+        enableSorting: true,
+        cell: ({ row }) => {
+          const val = row.original.hitni_rok;
+          const sched = scheduleMap.get(row.original.id);
+          const hitniRokWarning = val && sched?.start &&
+            isAfter(startOfDay(sched.start), startOfDay(parseISO(val)));
+          return (
+            <div className="flex items-center gap-1">
+              <EditableCell
+                value={val ?? ""}
+                displayValue={
+                  val
+                    ? val.split("-").reverse().join(".")
+                    : undefined
+                }
+                onSave={(v) =>
+                  handleFieldUpdate(row.original.id, "hitni_rok", v)
+                }
+                type="date"
+                disabled={!canEdit?.("hitni_rok")}
+              />
+              {hitniRokWarning && (
+                <span className="text-[9px] text-red-600 font-bold flex-shrink-0" title="Kasni s početkom">⚠</span>
+              )}
+            </div>
+          );
+        },
       },
       {
         accessorKey: "rok_isporuke",
@@ -701,16 +827,17 @@ function DesktopTable({
       },
       {
         accessorKey: "trajanje_h",
-        header: "Trajanje (h)",
+        header: "Trajanje",
         size: 80,
         enableSorting: true,
         cell: ({ row }) => (
           <EditableCell
             value={String(row.original.trajanje_h)}
+            displayValue={formatDuration(row.original.trajanje_h)}
             onSave={(v) =>
               handleFieldUpdate(row.original.id, "trajanje_h", v)
             }
-            type="number"
+            type="duration"
             disabled={!canEdit?.("trajanje_h")}
           />
         ),
@@ -846,23 +973,50 @@ function DesktopTable({
           />
         ),
       },
-      ...(canDelete?.() !== false ? [{
+      ...((canEdit?.() || canDelete?.() !== false) ? [{
         id: "actions",
         header: "",
-        size: 30,
+        size: 70,
         enableSorting: false,
         cell: ({ row }: { row: { original: WorkOrder } }) => (
-          <button
-            onClick={() => onDelete(row.original.id)}
-            className="text-[#d0d5dd] hover:text-red-500 text-xs transition-colors"
-            title="Obriši nalog"
-          >
-            &#x2715;
-          </button>
+          <div className="flex items-center gap-2 justify-end">
+            {canEdit?.() && onEdit && (
+              <button
+                onClick={() => onEdit(row.original)}
+                className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                title="Uredi nalog"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                  <path d="m15 5 4 4" />
+                </svg>
+              </button>
+            )}
+            {canDelete?.() !== false && (
+              <button
+                onClick={() => {
+                  if (row.original.split_group_id) {
+                    if (confirm("Obriši oba dijela split naloga?")) {
+                      onDelete(row.original.id);
+                    }
+                  } else {
+                    onDelete(row.original.id);
+                  }
+                }}
+                className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                title={row.original.split_group_id ? "Obriši oba dijela naloga" : "Obriši nalog"}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </button>
+            )}
+          </div>
         ),
       }] : []),
     ],
-    [machineMap, machines, scheduleMap, handleFieldUpdate, onDelete, canEdit, canDelete, sirovineEnabled, role, onUpdate]
+    [machineMap, machines, scheduleMap, handleFieldUpdate, onDelete, onEdit, canEdit, canDelete, sirovineEnabled, role, onUpdate]
   );
 
   const table = useReactTable({
@@ -878,7 +1032,7 @@ function DesktopTable({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="overflow-auto flex-1 min-h-0">
+      <div ref={scrollContainerRef} className="overflow-auto flex-1 min-h-0">
         <table className="w-full text-xs border-collapse">
           <thead>
             {table.getHeaderGroups().map((hg) => (
@@ -916,7 +1070,10 @@ function DesktopTable({
             {table.getRowModel().rows.map((row, rowIndex) => {
               const s = scheduleMap.get(row.original.id);
               const isOverlap = s?.status === "PREKLAPANJE";
-              const isHovered = hoveredOrderId === row.original.id;
+              const isHovered = hoveredOrderId === row.original.id
+                || (!!hoveredSplitGroup && row.original.split_group_id === hoveredSplitGroup);
+              const isExpired = s?.stanje === "ROK ISTEKAO";
+              const isDone = row.original.izvedba === "ZAVRŠEN";
               const zebraClass = rowIndex % 2 === 0 ? "bg-white" : "bg-[#f9fafb]";
               const isSirovineNema = sirovineEnabled && row.original.status_sirovine === "NEMA";
               const isSirovineNull = sirovineEnabled && row.original.status_sirovine === null;
@@ -929,12 +1086,15 @@ function DesktopTable({
                 ? "bg-yellow-50/30"
                 : isOverlap
                 ? "bg-red-50/50"
+                : isExpired
+                ? "bg-red-50"
                 : zebraClass;
 
               return (
                 <tr
                   key={row.id}
-                  className={`border-b border-[#eaecf0] transition-colors ${rowBg}`}
+                  data-order-id={row.original.id}
+                  className={`border-b border-[#eaecf0] transition-colors ${rowBg} ${isExpired ? "border-l-4 border-l-red-500" : ""} ${isDone ? "opacity-50" : ""}`}
                   onMouseEnter={() => onHoverOrder?.(row.original.id)}
                   onMouseLeave={() => onHoverOrder?.(null)}
                 >
@@ -962,6 +1122,81 @@ function DesktopTable({
 }
 
 /* ================================================================
+   MOBILE: Card List with focus scroll
+   ================================================================ */
+
+function MobileCardList({
+  orders,
+  machines,
+  machineMap,
+  scheduleMap,
+  onUpdate,
+  onDelete,
+  onEdit,
+  canEdit,
+  canDelete,
+  sirovineEnabled,
+  role,
+  focusedOrderId,
+}: {
+  orders: WorkOrder[];
+  machines: Machine[];
+  machineMap: Map<string, Machine>;
+  scheduleMap: Map<string, ScheduledOrder>;
+  onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onEdit?: (order: WorkOrder) => void;
+  canEdit?: (field?: string) => boolean;
+  canDelete?: () => boolean;
+  sirovineEnabled?: boolean;
+  role?: UserRole;
+  focusedOrderId?: string | null;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!focusedOrderId || !scrollRef.current) return;
+    const el = scrollRef.current.querySelector(
+      `[data-order-id="${focusedOrderId}"]`
+    );
+    if (!el) return;
+
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    el.classList.add("row-focus-pulse");
+    const cleanup = () => el.classList.remove("row-focus-pulse");
+    el.addEventListener("animationend", cleanup, { once: true });
+    setTimeout(cleanup, 2500);
+  }, [focusedOrderId]);
+
+  return (
+    <div ref={scrollRef} className="md:hidden py-1 h-full overflow-auto">
+      {orders.length === 0 ? (
+        <EmptyState />
+      ) : (
+        orders.map((order) => (
+          <div key={order.id} data-order-id={order.id}>
+            <OrderCard
+              order={order}
+              machine={machineMap.get(order.machine_id)}
+              sched={scheduleMap.get(order.id)}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              sirovineEnabled={sirovineEnabled}
+              role={role}
+            />
+          </div>
+        ))
+      )}
+      <div className="h-20" />
+    </div>
+  );
+}
+
+/* ================================================================
    MAIN EXPORT: Responsive View
    ================================================================ */
 
@@ -971,8 +1206,11 @@ export function WorkOrdersView({
   scheduled,
   onUpdate,
   onDelete,
+  onEdit,
   hoveredOrderId,
+  hoveredSplitGroup,
   onHoverOrder,
+  focusedOrderId,
   columnVisibility,
   onColumnVisibilityChange,
   canEdit,
@@ -1005,27 +1243,20 @@ export function WorkOrdersView({
   return (
     <>
       {/* === MOBILE: Card List === */}
-      <div className="md:hidden py-2 h-full overflow-auto">
-        {orders.length === 0 ? (
-          <EmptyState />
-        ) : (
-          orders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              machine={machineMap.get(order.machine_id)}
-              sched={scheduleMap.get(order.id)}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-              canEdit={canEdit}
-              canDelete={canDelete}
-              sirovineEnabled={sirovineEnabled}
-              role={role}
-            />
-          ))
-        )}
-        <div className="h-20" />
-      </div>
+      <MobileCardList
+        orders={orders}
+        machines={machines}
+        machineMap={machineMap}
+        scheduleMap={scheduleMap}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        canEdit={canEdit}
+        canDelete={canDelete}
+        sirovineEnabled={sirovineEnabled}
+        role={role}
+        focusedOrderId={focusedOrderId}
+      />
 
       {/* === DESKTOP: Full Table === */}
       <div className="hidden md:block h-full">
@@ -1036,8 +1267,11 @@ export function WorkOrdersView({
           scheduleMap={scheduleMap}
           onUpdate={onUpdate}
           onDelete={onDelete}
+          onEdit={onEdit}
           hoveredOrderId={hoveredOrderId}
+          hoveredSplitGroup={hoveredSplitGroup}
           onHoverOrder={onHoverOrder}
+          focusedOrderId={focusedOrderId}
           columnVisibility={effectiveVisibility}
           onColumnVisibilityChange={onColumnVisibilityChange ?? (() => {})}
           canEdit={canEdit}
