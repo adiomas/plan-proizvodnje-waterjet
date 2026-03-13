@@ -9,9 +9,11 @@ import { useWorkOrders } from "@/hooks/use-work-orders";
 import { computeSchedule } from "@/lib/scheduler";
 import { WorkOrdersView, ColumnToggle, TOGGLEABLE_COLUMNS, DEFAULT_COLUMN_VISIBILITY } from "@/components/work-orders-table";
 import type { VisibilityState } from "@tanstack/react-table";
+import type { WorkOrder } from "@/lib/types";
 import { Timeline } from "@/components/timeline";
 import { MachineDialog } from "@/components/machine-dialog";
 import { NewOrderSheet } from "@/components/new-order-dialog";
+import { EditOrderDialog } from "@/components/edit-order-dialog";
 import { StatusBar } from "@/components/status-bar";
 import { SchedulingInfoModal } from "@/components/scheduling-info-modal";
 import { ExportMenu } from "@/components/export-menu";
@@ -69,6 +71,7 @@ export default function DashboardPage() {
   const [hoveredOrderId, setHoveredOrderId] = useState<string | null>(null);
   const [hoveredSplitGroup, setHoveredSplitGroup] = useState<string | null>(null);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY);
+  const [editingOrder, setEditingOrder] = useState<WorkOrder | null>(null);
 
   const ganttStartDate = useMemo(() => startOfDay(new Date()), []);
 
@@ -148,6 +151,16 @@ export default function DashboardPage() {
     const order = orders.find((o) => o.id === id);
     setHoveredSplitGroup(order?.split_group_id ?? null);
   };
+
+  const handleEditOrder = (order: WorkOrder) => {
+    setEditingOrder(order);
+  };
+
+  const editingSplitSibling = editingOrder?.split_group_id
+    ? orders.find(
+        (o) => o.split_group_id === editingOrder.split_group_id && o.id !== editingOrder.id
+      ) ?? null
+    : null;
 
   const handleMoveOrder = async (orderId: string, targetDate: string) => {
     await updateOrder(orderId, { najraniji_pocetak: targetDate });
@@ -466,6 +479,7 @@ export default function DashboardPage() {
               scheduled={filteredScheduled}
               onUpdate={updateOrder}
               onDelete={deleteOrder}
+              onEdit={handleEditOrder}
               hoveredOrderId={hoveredOrderId}
               hoveredSplitGroup={hoveredSplitGroup}
               onHoverOrder={handleHoverOrder}
@@ -586,6 +600,7 @@ export default function DashboardPage() {
                 scheduled={filteredScheduled}
                 onUpdate={updateOrder}
                 onDelete={deleteOrder}
+                onEdit={handleEditOrder}
                 canEdit={canEdit}
                 canDelete={canDelete}
                 canReorder={canReorder}
@@ -666,6 +681,20 @@ export default function DashboardPage() {
         onAdd={addOverride}
         onDelete={deleteOverride}
       />
+
+      {/* ======== Edit Order Dialog ======== */}
+      {editingOrder && (
+        <EditOrderDialog
+          key={editingOrder.id}
+          open={!!editingOrder}
+          onClose={() => setEditingOrder(null)}
+          order={editingOrder}
+          splitSibling={editingSplitSibling}
+          machines={machines}
+          onUpdate={updateOrder}
+          canEdit={canEdit}
+        />
+      )}
     </div>
   );
 }

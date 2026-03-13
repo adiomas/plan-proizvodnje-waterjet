@@ -247,6 +247,8 @@ interface DateInputProps {
   onBlur?: () => void;
   /** Called on keydown in the text input */
   onKeyDown?: (e: React.KeyboardEvent) => void;
+  /** Disable the input and calendar button */
+  disabled?: boolean;
 }
 
 export function DateInput({
@@ -259,6 +261,7 @@ export function DateInput({
   autoFocus,
   onBlur,
   onKeyDown,
+  disabled,
 }: DateInputProps) {
   const [calOpen, setCalOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -293,6 +296,7 @@ export function DateInput({
         className={`${className} pr-8`}
         autoFocus={autoFocus}
         onBlur={onBlur}
+        disabled={disabled}
         onKeyDown={(e) => {
           if (e.key === "Escape" && calOpen) {
             e.stopPropagation();
@@ -302,18 +306,20 @@ export function DateInput({
           onKeyDown?.(e);
         }}
       />
-      <button
-        type="button"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          setCalOpen((o) => !o);
-        }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-        tabIndex={-1}
-      >
-        <CalendarIcon />
-      </button>
-      {calOpen && (
+      {!disabled && (
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setCalOpen((o) => !o);
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+          tabIndex={-1}
+        >
+          <CalendarIcon />
+        </button>
+      )}
+      {calOpen && !disabled && (
         <CalendarPopover
           selected={selectedDate}
           onSelect={handleCalSelect}

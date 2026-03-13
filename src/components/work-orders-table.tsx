@@ -21,6 +21,7 @@ interface WorkOrdersViewProps {
   scheduled: ScheduledOrder[];
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onEdit?: (order: WorkOrder) => void;
   hoveredOrderId?: string | null;
   hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
@@ -172,6 +173,7 @@ function OrderCard({
   sched,
   onUpdate,
   onDelete,
+  onEdit,
   canEdit,
   canDelete,
   sirovineEnabled,
@@ -182,6 +184,7 @@ function OrderCard({
   sched: ScheduledOrder | undefined;
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onEdit?: (order: WorkOrder) => void;
   canEdit?: (field?: string) => boolean;
   canDelete?: () => boolean;
   sirovineEnabled?: boolean;
@@ -304,6 +307,18 @@ function OrderCard({
             >
               {order.izvedba}
             </button>
+            {canEdit?.() && onEdit && (
+              <button
+                onClick={() => onEdit(order)}
+                className="text-gray-300 active:text-blue-500 p-1"
+                title="Uredi nalog"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                  <path d="m15 5 4 4" />
+                </svg>
+              </button>
+            )}
             {canDelete?.() !== false && (
               <button
                 onClick={() => {
@@ -561,6 +576,7 @@ function DesktopTable({
   scheduleMap,
   onUpdate,
   onDelete,
+  onEdit,
   hoveredOrderId,
   hoveredSplitGroup,
   onHoverOrder,
@@ -577,6 +593,7 @@ function DesktopTable({
   scheduleMap: Map<string, ScheduledOrder>;
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onEdit?: (order: WorkOrder) => void;
   hoveredOrderId?: string | null;
   hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
@@ -909,31 +926,47 @@ function DesktopTable({
           />
         ),
       },
-      ...(canDelete?.() !== false ? [{
+      ...((canEdit?.() || canDelete?.() !== false) ? [{
         id: "actions",
         header: "",
-        size: 30,
+        size: 50,
         enableSorting: false,
         cell: ({ row }: { row: { original: WorkOrder } }) => (
-          <button
-            onClick={() => {
-              if (row.original.split_group_id) {
-                if (confirm("Obriši oba dijela split naloga?")) {
-                  onDelete(row.original.id);
-                }
-              } else {
-                onDelete(row.original.id);
-              }
-            }}
-            className="text-[#d0d5dd] hover:text-red-500 text-xs transition-colors"
-            title={row.original.split_group_id ? "Obriši oba dijela naloga" : "Obriši nalog"}
-          >
-            &#x2715;
-          </button>
+          <div className="flex items-center gap-1">
+            {canEdit?.() && onEdit && (
+              <button
+                onClick={() => onEdit(row.original)}
+                className="text-[#d0d5dd] hover:text-blue-500 text-xs transition-colors"
+                title="Uredi nalog"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                  <path d="m15 5 4 4" />
+                </svg>
+              </button>
+            )}
+            {canDelete?.() !== false && (
+              <button
+                onClick={() => {
+                  if (row.original.split_group_id) {
+                    if (confirm("Obriši oba dijela split naloga?")) {
+                      onDelete(row.original.id);
+                    }
+                  } else {
+                    onDelete(row.original.id);
+                  }
+                }}
+                className="text-[#d0d5dd] hover:text-red-500 text-xs transition-colors"
+                title={row.original.split_group_id ? "Obriši oba dijela naloga" : "Obriši nalog"}
+              >
+                &#x2715;
+              </button>
+            )}
+          </div>
         ),
       }] : []),
     ],
-    [machineMap, machines, scheduleMap, handleFieldUpdate, onDelete, canEdit, canDelete, sirovineEnabled, role, onUpdate]
+    [machineMap, machines, scheduleMap, handleFieldUpdate, onDelete, onEdit, canEdit, canDelete, sirovineEnabled, role, onUpdate]
   );
 
   const table = useReactTable({
@@ -1047,6 +1080,7 @@ export function WorkOrdersView({
   scheduled,
   onUpdate,
   onDelete,
+  onEdit,
   hoveredOrderId,
   hoveredSplitGroup,
   onHoverOrder,
@@ -1094,6 +1128,7 @@ export function WorkOrdersView({
               sched={scheduleMap.get(order.id)}
               onUpdate={onUpdate}
               onDelete={onDelete}
+              onEdit={onEdit}
               canEdit={canEdit}
               canDelete={canDelete}
               sirovineEnabled={sirovineEnabled}
@@ -1113,6 +1148,7 @@ export function WorkOrdersView({
           scheduleMap={scheduleMap}
           onUpdate={onUpdate}
           onDelete={onDelete}
+          onEdit={onEdit}
           hoveredOrderId={hoveredOrderId}
           hoveredSplitGroup={hoveredSplitGroup}
           onHoverOrder={onHoverOrder}
