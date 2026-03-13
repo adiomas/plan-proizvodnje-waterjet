@@ -26,7 +26,7 @@ export function NewOrderSheet({
 
   // Dio A
   const [machineIdA, setMachineIdA] = useState("");
-  const [trajanjeA, setTrajanjeA] = useState("1");
+  const [trajanjeA, setTrajanjeA] = useState("");
   const [opisA, setOpisA] = useState("");
   const [napomenaA, setNapomenaA] = useState("");
   const [redoslijedA, setRedoslijedA] = useState("");
@@ -37,7 +37,7 @@ export function NewOrderSheet({
 
   // Dio B
   const [machineIdB, setMachineIdB] = useState("");
-  const [trajanjeB, setTrajanjeB] = useState("1");
+  const [trajanjeB, setTrajanjeB] = useState("");
   const [opisB, setOpisB] = useState("");
   const [napomenaB, setNapomenaB] = useState("");
   const [redoslijedB, setRedoslijedB] = useState("");
@@ -56,7 +56,7 @@ export function NewOrderSheet({
     setRokDisplay("");
     setIsSplit(false);
     setMachineIdA("");
-    setTrajanjeA("1");
+    setTrajanjeA("");
     setOpisA("");
     setNapomenaA("");
     setRedoslijedA("");
@@ -65,7 +65,7 @@ export function NewOrderSheet({
     setHitniRokA("");
     setHitniRokDisplayA("");
     setMachineIdB("");
-    setTrajanjeB("1");
+    setTrajanjeB("");
     setOpisB("");
     setNapomenaB("");
     setRedoslijedB("");
@@ -77,8 +77,8 @@ export function NewOrderSheet({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!machineIdA) return;
-    if (isSplit && (!machineIdB || sameMachine)) return;
+    if (!machineIdA || !parseFloat(trajanjeA)) return;
+    if (isSplit && (!machineIdB || sameMachine || !parseFloat(trajanjeB))) return;
     setSaving(true);
 
     const orderA: NewWorkOrder = {
@@ -298,7 +298,7 @@ export function NewOrderSheet({
               <button type="button" onClick={onClose} className="flex-1 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 Odustani
               </button>
-              <button type="submit" disabled={saving || !!sameMachine} className="flex-[2] py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+              <button type="submit" disabled={saving || !!sameMachine || !parseFloat(trajanjeA) || (isSplit && !parseFloat(trajanjeB))} className="flex-[2] py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors">
                 {saving ? "Spremam..." : isSplit ? "Dodaj split nalog" : "Dodaj nalog"}
               </button>
             </div>
@@ -329,7 +329,7 @@ export function NewOrderSheet({
               <button type="button" onClick={onClose} className="flex-1 py-3 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-[0.98] transition-transform">
                 Odustani
               </button>
-              <button type="submit" disabled={saving || !!sameMachine} className="flex-[2] py-3 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-emerald-600/20">
+              <button type="submit" disabled={saving || !!sameMachine || !parseFloat(trajanjeA) || (isSplit && !parseFloat(trajanjeB))} className="flex-[2] py-3 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-emerald-600/20">
                 {saving ? "Spremam..." : isSplit ? "Dodaj split nalog" : "Dodaj nalog"}
               </button>
             </div>

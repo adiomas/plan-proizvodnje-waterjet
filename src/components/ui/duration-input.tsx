@@ -151,15 +151,17 @@ export function DurationInput({
   const [popOpen, setPopOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const numValue = parseFloat(value) || 1;
+  const numValue = value ? parseFloat(value) : 0;
+  const isEmpty = !value || numValue === 0;
 
   const step = useCallback(
     (direction: 1 | -1, size: number) => {
-      const next = Math.round((numValue + direction * size) * 100) / 100;
+      const base = isEmpty ? 0 : numValue;
+      const next = Math.round((base + direction * size) * 100) / 100;
       if (next < MIN_VALUE) return;
       onChange(String(next));
     },
-    [numValue, onChange]
+    [numValue, isEmpty, onChange]
   );
 
   const handleSelect = useCallback(
@@ -190,7 +192,7 @@ export function DurationInput({
       <button
         type="button"
         onClick={() => step(-1, STEP_HOUR)}
-        disabled={disabled || numValue <= STEP_HOUR}
+        disabled={disabled || isEmpty || numValue <= STEP_HOUR}
         className="flex-shrink-0 w-6 h-full flex items-center justify-center text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors"
         tabIndex={-1}
         title="−1h"
@@ -205,7 +207,7 @@ export function DurationInput({
       <button
         type="button"
         onClick={() => step(-1, STEP_FINE)}
-        disabled={disabled || numValue <= MIN_VALUE}
+        disabled={disabled || isEmpty || numValue <= MIN_VALUE}
         className="flex-shrink-0 w-5 h-full flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors"
         tabIndex={-1}
         title="−15m"
@@ -217,9 +219,9 @@ export function DurationInput({
 
       {/* Display */}
       <span
-        className={`flex-1 text-center truncate ${disabled ? "text-gray-400" : "cursor-default"}`}
+        className={`flex-1 text-center truncate ${isEmpty ? "text-gray-400" : ""} ${disabled ? "text-gray-400" : "cursor-default"}`}
       >
-        {formatDuration(numValue)}
+        {isEmpty ? "Odaberi" : formatDuration(numValue)}
       </span>
 
       {/* +15min gumb */}
