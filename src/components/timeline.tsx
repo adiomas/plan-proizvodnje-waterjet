@@ -18,6 +18,7 @@ interface TimelineProps {
   scheduled: ScheduledOrder[];
   ganttStartDate: Date;
   hoveredOrderId?: string | null;
+  hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
   onMoveOrder?: (orderId: string, targetDate: string) => void;
   onUnpinOrder?: (orderId: string) => void;
@@ -55,6 +56,7 @@ export function Timeline({
   scheduled,
   ganttStartDate,
   hoveredOrderId,
+  hoveredSplitGroup,
   onHoverOrder,
   onMoveOrder,
   onUnpinOrder,
@@ -671,9 +673,11 @@ export function Timeline({
                   if (segments.length === 0) return null;
                   const gaps = getWeekendGaps(segments);
                   const isOverlap = s.status === "PREKLAPANJE";
-                  const barColor = isOverlap ? "#F4CCCC" : machine.color;
-                  const isThisHovered = hoveredOrderId === s.order.id;
-                  const somethingHovered = hoveredOrderId != null;
+                  const isExpired = s.stanje === "ROK ISTEKAO";
+                  const barColor = isOverlap ? "#F4CCCC" : isExpired ? "#DC2626" : machine.color;
+                  const isThisHovered = hoveredOrderId === s.order.id
+                    || (!!hoveredSplitGroup && s.order.split_group_id === hoveredSplitGroup);
+                  const somethingHovered = hoveredOrderId != null || hoveredSplitGroup != null;
                   const isBeingDragged = dragState?.orderId === s.order.id && dragState.isDragging;
                   const isPinned = s.order.najraniji_pocetak !== null;
                   const isCeka = sirovineEnabled && s.order.status_sirovine === "CEKA";
@@ -740,7 +744,7 @@ export function Timeline({
                         <div
                           key={`seg-${si}`}
                           className={`absolute rounded-sm transition-all duration-150 ${
-                            isOverlap ? "border-2 border-red-500" : ""
+                            isOverlap ? "border-2 border-red-500" : s.order.hitno ? "border-2 border-red-600" : ""
                           } ${isThisHovered && !isBeingDragged ? "ring-2 ring-blue-400 z-10" : ""} ${
                             draggable && onMoveOrder ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
                           }`}
@@ -795,7 +799,11 @@ export function Timeline({
                               )}
                               {isPinned && !onUnpinOrder && "⏳ "}
                               {isCeka && "⏳ "}
-                              {totalRight - totalLeft > 40 ? s.order.rn_id : ""}
+                              {totalRight - totalLeft > 40 ? (
+                                s.order.split_label
+                                  ? `${s.order.rn_id} (${s.order.split_label})`
+                                  : s.order.rn_id
+                              ) : ""}
                             </span>
                           )}
                         </div>
@@ -817,8 +825,10 @@ export function Timeline({
           style={{ left: tooltip.x + 12, top: tooltip.y - 60 }}
         >
           <div className="font-bold">
+            {tooltip.order.order.hitno && "🚨 "}
             {tooltip.order.order.najraniji_pocetak !== null && "⏳ "}
             {tooltip.order.order.rn_id}
+            {tooltip.order.order.split_label && ` (Dio ${tooltip.order.order.split_label})`}
           </div>
           {tooltip.order.order.opis && (
             <div className="text-gray-300">
@@ -843,11 +853,30 @@ export function Timeline({
               Sirovina: {tooltip.order.order.status_sirovine === "IMA" ? "IMA" : tooltip.order.order.status_sirovine === "NEMA" ? "NEMA" : "ČEKA"}
             </div>
           )}
+          {tooltip.order.order.hitno && (
+            <div className="text-red-300 font-bold">HITNO</div>
+          )}
+          {tooltip.order.stanje === "ROK ISTEKAO" && (
+            <div className="text-red-300 font-bold">ROK ISTEKAO</div>
+          )}
           {tooltip.order.status !== "OK" && (
             <div className="text-red-300 font-bold">
               {tooltip.order.status}
             </div>
           )}
+          {tooltip.order.order.split_group_id && (() => {
+            const sibling = scheduled.find(
+              (s) => s.order.split_group_id === tooltip.order.order.split_group_id
+                && s.order.id !== tooltip.order.order.id
+            );
+            if (!sibling) return null;
+            const sibMachine = machines.find((m) => m.id === sibling.order.machine_id);
+            return (
+              <div className="text-blue-300 text-[9px] mt-0.5">
+                Parnjak: Dio {sibling.order.split_label} na {sibMachine?.name ?? "—"}
+              </div>
+            );
+          })()}
           {tooltip.order.order.najraniji_pocetak !== null && (
             <div className="text-blue-300 text-[9px] mt-0.5">
               Ne prije {tooltip.order.order.najraniji_pocetak} • klikni ⏳ za uklanjanje

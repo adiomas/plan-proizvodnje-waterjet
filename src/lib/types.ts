@@ -22,7 +22,10 @@ export interface WorkOrder {
   zeljeni_redoslijed: number | null;
   najraniji_pocetak: string | null;
   izvedba: "PLANIRAN" | "U TIJEKU" | "ZAVRŠEN";
+  hitno: boolean;
   status_sirovine: StatusSirovine;
+  split_group_id: string | null;
+  split_label: "A" | "B" | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -37,7 +40,7 @@ export type ScheduleStatus =
   | "NEMA SIROVINE"
   | "ČEKANJE SIROVINE";
 
-export type DeadlineStatus = "KASNI" | "KRITIČNO" | "NA VRIJEME" | "BEZ ROKA" | null;
+export type DeadlineStatus = "KASNI" | "KRITIČNO" | "NA VRIJEME" | "ROK ISTEKAO" | "BEZ ROKA" | null;
 
 export interface ScheduledOrder {
   order: WorkOrder;

@@ -22,6 +22,7 @@ interface WorkOrdersViewProps {
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   hoveredOrderId?: string | null;
+  hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
   columnVisibility?: VisibilityState;
   onColumnVisibilityChange?: OnChangeFn<VisibilityState>;
@@ -35,8 +36,10 @@ interface WorkOrdersViewProps {
 /* Exported column metadata for external ColumnToggle rendering */
 export const TOGGLEABLE_COLUMNS = [
   { id: "rn_id", header: "RN ID" },
+  { id: "split_label", header: "Dio" },
   { id: "opis", header: "Opis" },
   { id: "napomena", header: "Napomena" },
+  { id: "hitno", header: "Hitno" },
   { id: "rok_isporuke", header: "Rok" },
   { id: "status_sirovine", header: "Sirovine" },
   { id: "machine_id", header: "Stroj" },
@@ -54,6 +57,7 @@ export const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
   napomena: false,
   najraniji_pocetak: false,
   status_sirovine: false,
+  split_label: false,
 };
 
 /* ================================================================
@@ -142,7 +146,9 @@ function SirovinaBadge({
 
 function StanjeBadge({ stanje }: { stanje: string }) {
   const style =
-    stanje === "KASNI"
+    stanje === "ROK ISTEKAO"
+      ? "bg-red-100 text-red-700 border border-red-300 font-bold"
+      : stanje === "KASNI"
       ? "bg-red-50 text-red-600"
       : stanje === "KRITIČNO"
       ? "bg-yellow-50 text-yellow-700"
@@ -184,6 +190,7 @@ function OrderCard({
   const isOverlap = sched?.status === "PREKLAPANJE";
   const isLate = sched?.stanje === "KASNI";
   const isCritical = sched?.stanje === "KRITIČNO";
+  const isExpired = sched?.stanje === "ROK ISTEKAO";
   const isDone = order.izvedba === "ZAVRŠEN";
   const isSirovineNema = sirovineEnabled && order.status_sirovine === "NEMA";
   const isSirovineNull = sirovineEnabled && order.status_sirovine === null;
@@ -223,6 +230,8 @@ function OrderCard({
           ? "border-yellow-200 bg-yellow-50/30"
           : isOverlap
           ? "border-red-200 bg-red-50/40"
+          : isExpired
+          ? "border-red-500 bg-red-50 shadow-md"
           : isLate
           ? "border-amber-200 bg-amber-50/30"
           : isCritical
@@ -238,7 +247,9 @@ function OrderCard({
         <div className="flex-1 px-3 py-2.5 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <span className="font-semibold text-[13px] text-gray-900 truncate">
+              {order.hitno && <span className="mr-1" title="Hitno">🚨</span>}
               {order.rn_id}
+              {order.split_label && <span className="text-[10px] font-bold text-gray-400 ml-1">({order.split_label})</span>}
             </span>
             <span className="text-[11px] text-gray-400 tabular-nums flex-shrink-0">
               {order.trajanje_h}h
@@ -295,7 +306,15 @@ function OrderCard({
             </button>
             {canDelete?.() !== false && (
               <button
-                onClick={() => onDelete(order.id)}
+                onClick={() => {
+                  if (order.split_group_id) {
+                    if (confirm("Obriši oba dijela split naloga?")) {
+                      onDelete(order.id);
+                    }
+                  } else {
+                    onDelete(order.id);
+                  }
+                }}
                 className="text-gray-200 active:text-red-500 p-1 -mr-1"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -543,6 +562,7 @@ function DesktopTable({
   onUpdate,
   onDelete,
   hoveredOrderId,
+  hoveredSplitGroup,
   onHoverOrder,
   columnVisibility,
   onColumnVisibilityChange,
@@ -558,6 +578,7 @@ function DesktopTable({
   onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   hoveredOrderId?: string | null;
+  hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
   columnVisibility: VisibilityState;
   onColumnVisibilityChange: OnChangeFn<VisibilityState>;
@@ -590,14 +611,32 @@ function DesktopTable({
       {
         accessorKey: "rn_id",
         header: "RN ID",
-        size: 80,
+        size: 100,
         enableSorting: true,
         cell: ({ row }) => (
-          <EditableCell
-            value={row.original.rn_id}
-            onSave={(v) => handleFieldUpdate(row.original.id, "rn_id", v)}
-            disabled={!canEdit?.("rn_id")}
-          />
+          <div className="flex items-center gap-1">
+            <EditableCell
+              value={row.original.rn_id}
+              onSave={(v) => handleFieldUpdate(row.original.id, "rn_id", v)}
+              disabled={!canEdit?.("rn_id")}
+            />
+            {row.original.split_label && (
+              <span className="text-[9px] font-bold text-gray-400 flex-shrink-0" title="Split nalog">
+                ({row.original.split_label})
+              </span>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "split_label",
+        header: "Dio",
+        size: 40,
+        enableSorting: true,
+        cell: ({ row }) => (
+          <span className="text-[10px] text-gray-500">
+            {row.original.split_label ?? "—"}
+          </span>
         ),
       },
       {
@@ -625,6 +664,30 @@ function DesktopTable({
             disabled={!canEdit?.("napomena")}
           />
         ),
+      },
+      {
+        id: "hitno",
+        accessorKey: "hitno",
+        header: "Hitno",
+        size: 60,
+        enableSorting: true,
+        cell: ({ row }) => {
+          const isHitno = row.original.hitno;
+          const canToggle = canEdit?.("hitno");
+          return (
+            <button
+              onClick={() => canToggle && onUpdate(row.original.id, { hitno: !isHitno })}
+              disabled={!canToggle}
+              className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap transition-colors ${
+                isHitno
+                  ? "bg-red-100 text-red-700 border border-red-300 animate-pulse"
+                  : "bg-gray-100 text-gray-400 border border-gray-200"
+              } ${canToggle ? "cursor-pointer hover:opacity-80" : "cursor-default opacity-60"}`}
+            >
+              {isHitno ? "DA" : "NE"}
+            </button>
+          );
+        },
       },
       {
         accessorKey: "rok_isporuke",
@@ -853,9 +916,17 @@ function DesktopTable({
         enableSorting: false,
         cell: ({ row }: { row: { original: WorkOrder } }) => (
           <button
-            onClick={() => onDelete(row.original.id)}
+            onClick={() => {
+              if (row.original.split_group_id) {
+                if (confirm("Obriši oba dijela split naloga?")) {
+                  onDelete(row.original.id);
+                }
+              } else {
+                onDelete(row.original.id);
+              }
+            }}
             className="text-[#d0d5dd] hover:text-red-500 text-xs transition-colors"
-            title="Obriši nalog"
+            title={row.original.split_group_id ? "Obriši oba dijela naloga" : "Obriši nalog"}
           >
             &#x2715;
           </button>
@@ -916,7 +987,10 @@ function DesktopTable({
             {table.getRowModel().rows.map((row, rowIndex) => {
               const s = scheduleMap.get(row.original.id);
               const isOverlap = s?.status === "PREKLAPANJE";
-              const isHovered = hoveredOrderId === row.original.id;
+              const isHovered = hoveredOrderId === row.original.id
+                || (!!hoveredSplitGroup && row.original.split_group_id === hoveredSplitGroup);
+              const isExpired = s?.stanje === "ROK ISTEKAO";
+              const isDone = row.original.izvedba === "ZAVRŠEN";
               const zebraClass = rowIndex % 2 === 0 ? "bg-white" : "bg-[#f9fafb]";
               const isSirovineNema = sirovineEnabled && row.original.status_sirovine === "NEMA";
               const isSirovineNull = sirovineEnabled && row.original.status_sirovine === null;
@@ -929,12 +1003,14 @@ function DesktopTable({
                 ? "bg-yellow-50/30"
                 : isOverlap
                 ? "bg-red-50/50"
+                : isExpired
+                ? "bg-red-50"
                 : zebraClass;
 
               return (
                 <tr
                   key={row.id}
-                  className={`border-b border-[#eaecf0] transition-colors ${rowBg}`}
+                  className={`border-b border-[#eaecf0] transition-colors ${rowBg} ${isExpired ? "border-l-4 border-l-red-500" : ""} ${isDone ? "opacity-50" : ""}`}
                   onMouseEnter={() => onHoverOrder?.(row.original.id)}
                   onMouseLeave={() => onHoverOrder?.(null)}
                 >
@@ -972,6 +1048,7 @@ export function WorkOrdersView({
   onUpdate,
   onDelete,
   hoveredOrderId,
+  hoveredSplitGroup,
   onHoverOrder,
   columnVisibility,
   onColumnVisibilityChange,
@@ -1037,6 +1114,7 @@ export function WorkOrdersView({
           onUpdate={onUpdate}
           onDelete={onDelete}
           hoveredOrderId={hoveredOrderId}
+          hoveredSplitGroup={hoveredSplitGroup}
           onHoverOrder={onHoverOrder}
           columnVisibility={effectiveVisibility}
           onColumnVisibilityChange={onColumnVisibilityChange ?? (() => {})}

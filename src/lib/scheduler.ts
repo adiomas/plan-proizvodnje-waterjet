@@ -176,8 +176,9 @@ function scheduleAutoOrders(
   overrides: MachineOverride[],
   sirovineEnabled = false
 ): void {
-  // EDD: sortiraj po roku (najhitniji prvo), null rok ide na kraj
+  // EDD: hitno nalozi ISPRED svih, zatim po roku (najhitniji prvo), null rok ide na kraj
   const sorted = [...autoOrders].sort((a, b) => {
+    if (a.hitno !== b.hitno) return a.hitno ? -1 : 1;
     const aDeadline = a.rok_isporuke ? parseISO(a.rok_isporuke).getTime() : Infinity;
     const bDeadline = b.rok_isporuke ? parseISO(b.rok_isporuke).getTime() : Infinity;
     if (aDeadline !== bDeadline) return aDeadline - bDeadline;
@@ -200,37 +201,130 @@ function scheduleAutoOrders(
     }
   }
 
+  // Grupiraj split parove
+  const splitGroups = new Map<string, WorkOrder[]>();
+  for (const o of sorted) {
+    if (o.split_group_id) {
+      const group = splitGroups.get(o.split_group_id) ?? [];
+      group.push(o);
+      splitGroups.set(o.split_group_id, group);
+    }
+  }
+
+  const processedIds = new Set<string>();
+
   for (const order of sorted) {
+    if (processedIds.has(order.id)) continue;
+
     if (!order.machine_id || order.trajanje_h <= 0) {
       scheduled.push(makeResult(order, null, null, "NEMA RASPOREDA"));
+      processedIds.add(order.id);
       continue;
     }
 
-    const occupied = occupiedByMachine.get(order.machine_id) ?? [];
+    if (order.split_group_id) {
+      const siblings = splitGroups.get(order.split_group_id) ?? [];
+      const sibling = siblings.find((o) => o.id !== order.id);
 
-    // "Ne prije" logika: ako nalog ima najraniji_pocetak, koristi ga kao minimum
-    let earliest = ganttStartDate;
-    if (order.najraniji_pocetak) {
-      const npDate = parseISO(order.najraniji_pocetak);
-      if (isAfter(npDate, ganttStartDate)) {
-        earliest = npDate;
+      if (!sibling || !sibling.machine_id || sibling.trajanje_h <= 0) {
+        // Sibling nevalidan — rasporedi normalno, sibling bez rasporeda
+        const result = scheduleOneAuto(order, ganttStartDate, occupiedByMachine, overrides, sirovineEnabled);
+        scheduled.push(result);
+        if (result.start && result.end) {
+          (occupiedByMachine.get(order.machine_id) ?? []).push({ start: result.start, end: result.end });
+        }
+        processedIds.add(order.id);
+        if (sibling) {
+          scheduled.push(makeResult(sibling, null, null, "NEMA RASPOREDA"));
+          processedIds.add(sibling.id);
+        }
+        continue;
       }
+
+      // Odredi sidro: onaj s eksplicitnim najraniji_pocetak, ili prvi po redu
+      let anchor = order;
+      let partner = sibling;
+      if (sibling.najraniji_pocetak && !order.najraniji_pocetak) {
+        anchor = sibling;
+        partner = order;
+      }
+
+      // Rasporedi sidro normalno
+      const anchorResult = scheduleOneAuto(anchor, ganttStartDate, occupiedByMachine, overrides, sirovineEnabled);
+      scheduled.push(anchorResult);
+      if (anchorResult.start && anchorResult.end) {
+        (occupiedByMachine.get(anchor.machine_id) ?? []).push({ start: anchorResult.start, end: anchorResult.end });
+      }
+
+      // Rasporedi parnjaka s proximity constraintom
+      let partnerEarliest: Date;
+      if (partner.najraniji_pocetak) {
+        const npDate = parseISO(partner.najraniji_pocetak);
+        partnerEarliest = isAfter(npDate, ganttStartDate) ? npDate : ganttStartDate;
+      } else if (anchorResult.start) {
+        // Proximity: početak istog dana kao sidro
+        partnerEarliest = startOfDay(anchorResult.start);
+      } else {
+        partnerEarliest = ganttStartDate;
+      }
+
+      const partnerOccupied = occupiedByMachine.get(partner.machine_id) ?? [];
+      const partnerStart = findEarliestStart(
+        partnerEarliest,
+        partner.trajanje_h,
+        partnerOccupied,
+        partner.machine_id,
+        overrides
+      );
+      const partnerEnd = calculateEnd(partnerStart, partner.trajanje_h, partner.machine_id, overrides);
+      const partnerStanje = calculateDeadline(partner, partnerEnd);
+      const partnerStatus: ScheduleStatus = sirovineEnabled && partner.status_sirovine === "CEKA" ? "ČEKANJE SIROVINE" : "OK";
+
+      scheduled.push(makeResult(partner, partnerStart, partnerEnd, partnerStatus, partnerStanje));
+      partnerOccupied.push({ start: partnerStart, end: partnerEnd });
+
+      processedIds.add(anchor.id);
+      processedIds.add(partner.id);
+    } else {
+      // Normalan nalog — bez promjena
+      const result = scheduleOneAuto(order, ganttStartDate, occupiedByMachine, overrides, sirovineEnabled);
+      scheduled.push(result);
+      if (result.start && result.end) {
+        (occupiedByMachine.get(order.machine_id) ?? []).push({ start: result.start, end: result.end });
+      }
+      processedIds.add(order.id);
     }
-
-    const start = findEarliestStart(
-      earliest,
-      order.trajanje_h,
-      occupied,
-      order.machine_id,
-      overrides
-    );
-    const end = calculateEnd(start, order.trajanje_h, order.machine_id, overrides);
-    const stanje = calculateDeadline(order, end);
-    const baseStatus: ScheduleStatus = sirovineEnabled && order.status_sirovine === "CEKA" ? "ČEKANJE SIROVINE" : "OK";
-
-    scheduled.push(makeResult(order, start, end, baseStatus, stanje));
-    occupied.push({ start, end });
   }
+}
+
+/** Rasporedi jedan auto nalog (izvučena logika za reuse u split parovima) */
+function scheduleOneAuto(
+  order: WorkOrder,
+  ganttStartDate: Date,
+  occupiedByMachine: Map<string, TimeRange[]>,
+  overrides: MachineOverride[],
+  sirovineEnabled: boolean
+): ScheduledOrder {
+  if (!order.machine_id || order.trajanje_h <= 0) {
+    return makeResult(order, null, null, "NEMA RASPOREDA");
+  }
+
+  const occupied = occupiedByMachine.get(order.machine_id) ?? [];
+
+  let earliest = ganttStartDate;
+  if (order.najraniji_pocetak) {
+    const npDate = parseISO(order.najraniji_pocetak);
+    if (isAfter(npDate, ganttStartDate)) {
+      earliest = npDate;
+    }
+  }
+
+  const start = findEarliestStart(earliest, order.trajanje_h, occupied, order.machine_id, overrides);
+  const end = calculateEnd(start, order.trajanje_h, order.machine_id, overrides);
+  const stanje = calculateDeadline(order, end);
+  const baseStatus: ScheduleStatus = sirovineEnabled && order.status_sirovine === "CEKA" ? "ČEKANJE SIROVINE" : "OK";
+
+  return makeResult(order, start, end, baseStatus, stanje);
 }
 
 /** End-of-day provjera: vraća start nepromijenjeno — calculateEnd rješava multi-day split */
@@ -390,10 +484,18 @@ function calculateDeadline(
   end: Date | null
 ): DeadlineStatus {
   if (!order.rok_isporuke) return end ? "BEZ ROKA" : null;
-  if (!end) return null;
+
   const deadline = parseISO(order.rok_isporuke);
-  const endDay = startOfDay(end);
   const deadlineDay = startOfDay(deadline);
+  const today = startOfDay(new Date());
+
+  // Rok je već istekao ili ističe danas
+  if (!isAfter(deadlineDay, today)) {
+    return "ROK ISTEKAO";
+  }
+
+  if (!end) return null;
+  const endDay = startOfDay(end);
   const bufferDay = startOfDay(prevWorkday(deadline));
 
   if (isAfter(endDay, deadlineDay)) return "KASNI";
