@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { addDays, startOfDay, getDay, format, differenceInCalendarDays } from "date-fns";
 import type { Machine, ScheduledOrder, MachineOverride } from "@/lib/types";
+import { formatDuration } from "@/components/ui/duration-input";
 import {
   formatDayDate,
   formatDayShort,
@@ -847,7 +848,7 @@ export function Timeline({
               )}
             </div>
           )}
-          <div>Trajanje: {tooltip.order.order.trajanje_h}h</div>
+          <div>Trajanje: {formatDuration(tooltip.order.order.trajanje_h)}</div>
           {sirovineEnabled && tooltip.order.order.status_sirovine && (
             <div className="text-gray-300">
               Sirovina: {tooltip.order.order.status_sirovine === "IMA" ? "IMA" : tooltip.order.order.status_sirovine === "NEMA" ? "NEMA" : "ČEKA"}

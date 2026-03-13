@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Machine, WorkOrder, NewWorkOrder } from "@/lib/types";
 import { DateInput, parseDateInput, isoToDisplay } from "@/components/ui/date-input";
+import { DurationInput } from "@/components/ui/duration-input";
 
 interface EditOrderDialogProps {
   open: boolean;
@@ -176,8 +177,8 @@ export function EditOrderDialog({
               </select>
             </div>
             <div>
-              <label className={labelClass}>Trajanje (h) <span className="text-red-400">*</span></label>
-              <input type="number" step="0.5" min="0.5" value={trajanje} onChange={(e) => setTrajanje(e.target.value)} required disabled={!canEdit?.("trajanje_h")} className={ic} />
+              <label className={labelClass}>Trajanje <span className="text-red-400">*</span></label>
+              <DurationInput value={trajanje} onChange={setTrajanje} className={ic} required disabled={!canEdit?.("trajanje_h")} />
             </div>
             <div>
               <label className={labelClass}>Izvedba</label>

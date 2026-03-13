@@ -14,6 +14,7 @@ import {
 import type { Machine, WorkOrder, ScheduledOrder, StatusSirovine, UserRole } from "@/lib/types";
 import { formatDayDate, formatTime } from "@/lib/utils";
 import { DateInput } from "@/components/ui/date-input";
+import { DurationInput, formatDuration } from "@/components/ui/duration-input";
 import { parseISO, startOfDay, isAfter } from "date-fns";
 
 interface WorkOrdersViewProps {
@@ -45,7 +46,7 @@ export const TOGGLEABLE_COLUMNS = [
   { id: "rok_isporuke", header: "Rok" },
   { id: "status_sirovine", header: "Sirovine" },
   { id: "machine_id", header: "Stroj" },
-  { id: "trajanje_h", header: "Trajanje (h)" },
+  { id: "trajanje_h", header: "Trajanje" },
   { id: "zeljeni_redoslijed", header: "Redoslijed" },
   { id: "najraniji_pocetak", header: "Početak od" },
   { id: "start", header: "Početak" },
@@ -256,7 +257,7 @@ function OrderCard({
               {order.split_label && <span className="text-[10px] font-bold text-gray-400 ml-1">({order.split_label})</span>}
             </span>
             <span className="text-[11px] text-gray-400 tabular-nums flex-shrink-0">
-              {order.trajanje_h}h
+              {formatDuration(order.trajanje_h)}
             </span>
           </div>
           {order.opis && (
@@ -361,7 +362,7 @@ function EditableCell({
   value: string;
   displayValue?: string;
   onSave: (v: string) => void;
-  type?: "text" | "number" | "date" | "select";
+  type?: "text" | "number" | "date" | "select" | "duration";
   options?: { value: string; label: string }[];
   disabled?: boolean;
 }) {
@@ -411,6 +412,15 @@ function EditableCell({
             </option>
           ))}
         </select>
+      );
+    }
+    if (type === "duration") {
+      return (
+        <DurationInput
+          value={draft}
+          onChange={(v) => { setDraft(v); onSave(v); setEditing(false); }}
+          className="w-full bg-white border border-gray-300 rounded px-1 py-0.5 text-xs"
+        />
       );
     }
     if (isDate) {
@@ -791,16 +801,17 @@ function DesktopTable({
       },
       {
         accessorKey: "trajanje_h",
-        header: "Trajanje (h)",
+        header: "Trajanje",
         size: 80,
         enableSorting: true,
         cell: ({ row }) => (
           <EditableCell
             value={String(row.original.trajanje_h)}
+            displayValue={formatDuration(row.original.trajanje_h)}
             onSave={(v) =>
               handleFieldUpdate(row.original.id, "trajanje_h", v)
             }
-            type="number"
+            type="duration"
             disabled={!canEdit?.("trajanje_h")}
           />
         ),

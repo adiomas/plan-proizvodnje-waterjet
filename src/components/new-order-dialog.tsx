@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Machine, NewWorkOrder } from "@/lib/types";
 import { DateInput, parseDateInput, isoToDisplay } from "@/components/ui/date-input";
+import { DurationInput } from "@/components/ui/duration-input";
 
 interface NewOrderSheetProps {
   open: boolean;
@@ -168,8 +169,8 @@ export function NewOrderSheet({
               </select>
             </div>
             <div>
-              <label className={labelClass}>Trajanje (h) <span className="text-red-400">*</span></label>
-              <input type="number" step="0.5" min="0.5" value={trajanje} onChange={(e) => setTrajanje(e.target.value)} required className={ic} />
+              <label className={labelClass}>Trajanje <span className="text-red-400">*</span></label>
+              <DurationInput value={trajanje} onChange={setTrajanje} className={ic} required />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
