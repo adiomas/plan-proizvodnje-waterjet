@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import type { OvertimeSuggestion, OvertimeResult } from "@/lib/types";
 
 interface OvertimePanelProps {
@@ -24,6 +25,19 @@ export function OvertimePanel({
   const [approvingAll, setApprovingAll] = useState(false);
   // Praćenje odobrenih prijedloga: date+machine -> overrideId
   const [approved, setApproved] = useState<Map<string, string>>(new Map());
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Zatvori na klik izvan panela (samo za desktop)
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -87,8 +101,8 @@ export function OvertimePanel({
     (s) => !approved.has(`${s.machine_id}:${s.date}`)
   ).length;
 
-  return (
-    <div className="absolute top-full right-0 mt-1 z-50 w-80 bg-white border border-amber-200 rounded-lg shadow-lg p-3">
+  const panelContent = (
+    <>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-semibold text-amber-800">
           Prijedlozi prekovremenog ({result.fixable_count})
@@ -166,6 +180,29 @@ export function OvertimePanel({
           )}
         </>
       )}
+    </>
+  );
+
+  // Desktop: absolute dropdown
+  // Mobile: portal bottom sheet
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+
+  if (isMobile) {
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-end">
+        <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+        <div ref={panelRef} className="relative w-full bg-white rounded-t-xl p-4 pb-safe max-h-[70dvh] overflow-y-auto animate-sheet-up">
+          <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-3" />
+          {panelContent}
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  return (
+    <div ref={panelRef} className="absolute top-full right-0 mt-1 z-50 w-80 bg-white border border-amber-200 rounded-lg shadow-lg p-3">
+      {panelContent}
     </div>
   );
 }

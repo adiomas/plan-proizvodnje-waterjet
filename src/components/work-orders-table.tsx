@@ -233,7 +233,7 @@ function OrderCard({
 
   return (
     <div
-      className={`mx-3 mb-2 rounded-lg border overflow-hidden transition-all ${
+      className={`mx-2 mb-1.5 rounded-lg border overflow-hidden transition-all ${
         isSirovineNema
           ? "border-red-200 bg-red-50/40"
           : isSirovineNull
@@ -241,7 +241,7 @@ function OrderCard({
           : isOverlap
           ? "border-red-200 bg-red-50/40"
           : isExpired
-          ? "border-red-500 bg-red-50 shadow-md"
+          ? "border-red-500 bg-red-50 shadow-sm"
           : isLate
           ? "border-amber-200 bg-amber-50/30"
           : isCritical
@@ -254,23 +254,65 @@ function OrderCard({
           className="w-0.5 flex-shrink-0"
           style={{ backgroundColor: machine?.color ?? "#D1D5DB" }}
         />
-        <div className="flex-1 px-3 py-2.5 min-w-0">
-          <div className="flex items-center justify-between gap-2">
+        <div className="flex-1 px-2.5 py-1.5 min-w-0">
+          {/* Row 1: RN ID + duration + actions */}
+          <div className="flex items-center gap-1.5">
             <span className="font-semibold text-[13px] text-gray-900 truncate">
-              {order.hitni_rok && <span className="mr-1" title="Hitni rok">🚨</span>}
+              {order.hitni_rok && <span className="mr-0.5" title="Hitni rok">🚨</span>}
               {order.rn_id}
-              {order.split_label && <span className="text-[10px] font-bold text-gray-400 ml-1">({order.split_label})</span>}
+              {order.split_label && <span className="text-[10px] font-bold text-gray-400 ml-0.5">({order.split_label})</span>}
             </span>
-            <span className="text-[11px] text-gray-400 tabular-nums flex-shrink-0">
+            <span className="text-[10px] text-gray-400 tabular-nums flex-shrink-0">
               {formatDuration(order.trajanje_h)}
             </span>
+            <div className="flex-1" />
+            <button
+              onClick={cycleIzvedba}
+              disabled={!canEdit?.("izvedba")}
+              className={`text-[10px] font-medium px-2 py-0.5 rounded border active:scale-95 transition-transform ${
+                order.izvedba === "PLANIRAN"
+                  ? "bg-white border-gray-200 text-gray-500"
+                  : order.izvedba === "U TIJEKU"
+                  ? "bg-gray-900 border-gray-900 text-white"
+                  : "bg-gray-100 border-gray-200 text-gray-400"
+              } ${!canEdit?.("izvedba") ? "opacity-50" : ""}`}
+            >
+              {order.izvedba}
+            </button>
+            {canEdit?.() && onEdit && (
+              <button
+                onClick={() => onEdit(order)}
+                className="text-gray-300 active:text-blue-500 p-0.5"
+                title="Uredi nalog"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                  <path d="m15 5 4 4" />
+                </svg>
+              </button>
+            )}
+            {canDelete?.() !== false && (
+              <button
+                onClick={() => {
+                  if (order.split_group_id) {
+                    if (confirm("Obriši oba dijela split naloga?")) {
+                      onDelete(order.id);
+                    }
+                  } else {
+                    onDelete(order.id);
+                  }
+                }}
+                className="text-gray-200 active:text-red-500 p-0.5 -mr-0.5"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+              </button>
+            )}
           </div>
-          {order.opis && (
-            <p className="text-[11px] text-gray-500 truncate mt-0.5 leading-snug">
-              {order.opis}
-            </p>
-          )}
-          <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-gray-400 flex-wrap">
+          {/* Row 2: Machine + dates (single line) */}
+          <div className="flex items-center gap-1 mt-0.5 text-[10px] text-gray-400">
             <span className="font-medium text-gray-500">
               {machine?.name ?? "—"}
             </span>
@@ -291,7 +333,13 @@ function OrderCard({
               </>
             )}
           </div>
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          {order.opis && (
+            <p className="text-[10px] text-gray-500 truncate mt-0.5 leading-tight">
+              {order.opis}
+            </p>
+          )}
+          {/* Row 3: Badges (compact) */}
+          <div className="flex items-center gap-1 mt-1 flex-wrap">
             {sirovineEnabled && (
               <SirovinaBadge
                 status={order.status_sirovine}
@@ -300,51 +348,6 @@ function OrderCard({
             )}
             {sched && <StatusBadge status={sched.status} />}
             {sched?.stanje && <StanjeBadge stanje={sched.stanje} />}
-            <div className="flex-1" />
-            <button
-              onClick={cycleIzvedba}
-              disabled={!canEdit?.("izvedba")}
-              className={`text-[10px] font-medium px-2.5 py-1 rounded border active:scale-95 transition-transform ${
-                order.izvedba === "PLANIRAN"
-                  ? "bg-white border-gray-200 text-gray-500"
-                  : order.izvedba === "U TIJEKU"
-                  ? "bg-gray-900 border-gray-900 text-white"
-                  : "bg-gray-100 border-gray-200 text-gray-400"
-              } ${!canEdit?.("izvedba") ? "opacity-50" : ""}`}
-            >
-              {order.izvedba}
-            </button>
-            {canEdit?.() && onEdit && (
-              <button
-                onClick={() => onEdit(order)}
-                className="text-gray-300 active:text-blue-500 p-1"
-                title="Uredi nalog"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                  <path d="m15 5 4 4" />
-                </svg>
-              </button>
-            )}
-            {canDelete?.() !== false && (
-              <button
-                onClick={() => {
-                  if (order.split_group_id) {
-                    if (confirm("Obriši oba dijela split naloga?")) {
-                      onDelete(order.id);
-                    }
-                  } else {
-                    onDelete(order.id);
-                  }
-                }}
-                className="text-gray-200 active:text-red-500 p-1 -mr-1"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -1167,7 +1170,7 @@ function MobileCardList({
   }, [focusedOrderId]);
 
   return (
-    <div ref={scrollRef} className="md:hidden py-2 h-full overflow-auto">
+    <div ref={scrollRef} className="md:hidden py-1 h-full overflow-auto">
       {orders.length === 0 ? (
         <EmptyState />
       ) : (
