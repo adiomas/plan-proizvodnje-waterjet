@@ -235,7 +235,7 @@ export default function DashboardPage() {
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden bg-white">
       {/* ======== HEADER ======== */}
-      <header className="bg-white border-b border-gray-200 px-4 py-2.5 pt-safe flex items-center justify-between flex-shrink-0">
+      <header className="bg-white border-b border-gray-200 px-3 py-1.5 sm:py-2.5 pt-safe flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-md bg-gray-900 flex items-center justify-center flex-shrink-0">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -395,9 +395,9 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ======== MOBILE: Tab bar ======== */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2 flex-shrink-0">
-        <div className="relative flex bg-gray-100 rounded-md p-0.5 max-w-[240px]">
+      {/* ======== MOBILE: Tab bar + status badges (combined row) ======== */}
+      <div className="lg:hidden bg-white border-b border-gray-200 px-3 py-1.5 flex items-center gap-2 flex-shrink-0 overflow-x-auto">
+        <div className="relative flex bg-gray-100 rounded-md p-0.5 flex-shrink-0" style={{ minWidth: 160 }}>
           <div
             className="absolute top-0.5 bottom-0.5 bg-white rounded shadow-sm transition-transform duration-200 ease-out"
             style={{
@@ -410,7 +410,7 @@ export default function DashboardPage() {
           />
           <button
             onClick={() => setActiveTab("nalozi")}
-            className={`relative z-10 flex-1 text-xs font-medium py-1.5 rounded text-center transition-colors ${
+            className={`relative z-10 flex-1 text-xs font-medium py-1 px-3 rounded text-center transition-colors ${
               activeTab === "nalozi" ? "text-gray-900" : "text-gray-400"
             }`}
           >
@@ -421,101 +421,83 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => setActiveTab("gant")}
-            className={`relative z-10 flex-1 text-xs font-medium py-1.5 rounded text-center transition-colors ${
+            className={`relative z-10 flex-1 text-xs font-medium py-1 px-3 rounded text-center transition-colors ${
               activeTab === "gant" ? "text-gray-900" : "text-gray-400"
             }`}
           >
             Gant
           </button>
         </div>
-      </div>
+        {/* Status badges inline */}
+        {lateCount > 0 && (
+          <span className="sm:hidden flex-shrink-0 text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full font-medium border border-amber-100">
+            {lateCount} kasni
+          </span>
+        )}
+        {criticalCount > 0 && (
+          <span className="sm:hidden flex-shrink-0 text-[9px] bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded-full font-medium border border-yellow-200">
+            {criticalCount} kritično
+          </span>
+        )}
+        {expiredCount > 0 && (
+          <span className="sm:hidden flex-shrink-0 text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold border border-red-300">
+            {expiredCount} istekao
+          </span>
+        )}
 
-      {/* ======== MOBILE: Status badges ======== */}
-      {(overlapCount > 0 || lateCount > 0 || criticalCount > 0 || expiredCount > 0 || hitniRokCount > 0) && (
-        <div className="sm:hidden flex gap-1.5 px-4 py-1.5 border-b border-gray-100 overflow-x-auto flex-shrink-0">
-          {overlapCount > 0 && (
-            <span className="flex-shrink-0 text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
-              {overlapCount} prekl.
-            </span>
-          )}
-          {lateCount > 0 && (
-            <span className="flex-shrink-0 text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium border border-amber-100">
-              {lateCount} kasni
-            </span>
-          )}
-          {criticalCount > 0 && (
-            <span className="flex-shrink-0 text-[10px] bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium border border-yellow-200">
-              {criticalCount} kritično
-            </span>
-          )}
-          {expiredCount > 0 && (
-            <span className="flex-shrink-0 text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-300">
-              {expiredCount} istekao
-            </span>
-          )}
-          {hitniRokCount > 0 && (
-            <span className="flex-shrink-0 text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
-              {hitniRokCount} hitni rok
-            </span>
-          )}
-        </div>
-      )}
+        {/* Admin quick actions inline */}
+        {role === "admin" && (
+          <>
+            <div className="sm:hidden flex-shrink-0 h-3 w-px bg-gray-200" />
+            <button
+              onClick={toggleSirovine}
+              className={`sm:hidden flex-shrink-0 inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border transition-colors ${
+                sirovineEnabled
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  : "bg-gray-50 border-gray-200 text-gray-400"
+              }`}
+            >
+              <div className={`w-5 h-3 rounded-full relative transition-colors ${sirovineEnabled ? "bg-emerald-500" : "bg-gray-300"}`}>
+                <div className={`absolute top-0.5 w-2 h-2 rounded-full bg-white shadow-sm transition-transform ${sirovineEnabled ? "translate-x-2.5" : "translate-x-0.5"}`} />
+              </div>
+              Sir.
+            </button>
 
-      {/* ======== MOBILE: Admin toolbar ======== */}
-      {role === "admin" && (
-        <div className="lg:hidden flex items-center gap-2 px-4 py-1.5 border-b border-gray-100 flex-shrink-0 overflow-x-auto">
-          {/* Sirovine toggle — sm:hidden (tablet+ već ima u headeru) */}
-          <button
-            onClick={toggleSirovine}
-            className={`sm:hidden flex-shrink-0 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md border transition-colors ${
-              sirovineEnabled
-                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                : "bg-gray-50 border-gray-200 text-gray-400"
-            }`}
-          >
-            <div className={`w-6 h-3.5 rounded-full relative transition-colors ${sirovineEnabled ? "bg-emerald-500" : "bg-gray-300"}`}>
-              <div className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-transform ${sirovineEnabled ? "translate-x-3" : "translate-x-0.5"}`} />
-            </div>
-            Sir.
-          </button>
-
-          {/* Overtime 💡 — sm:hidden (tablet+ već ima) */}
-          {overtimeResult.fixable_count > 0 && (
-            <div className="relative sm:hidden flex-shrink-0">
-              <button
-                onClick={() => setShowOvertimePopover(!showOvertimePopover)}
-                className="inline-flex items-center gap-1 text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-medium border border-amber-200 hover:bg-amber-100 transition-colors"
-              >
-                💡 {overtimeResult.fixable_count}
-              </button>
-              <OvertimePanel
-                result={overtimeResult}
-                open={showOvertimePopover}
-                onClose={() => setShowOvertimePopover(false)}
-                onApprove={handleApproveOvertime}
-                onApproveAll={handleApproveAllOvertime}
-                onUndoApprove={handleUndoApproveOvertime}
-              />
-            </div>
-          )}
-
-          {/* Override ⏰ — telefoni + tableti */}
-          <button
-            onClick={() => setShowOverrides(true)}
-            className="flex-shrink-0 inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors"
-          >
-            <span>⏰</span>
-            {overrides.length > 0 && (
-              <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded-full">{overrides.length}</span>
+            {overtimeResult.fixable_count > 0 && (
+              <div className="relative sm:hidden flex-shrink-0">
+                <button
+                  onClick={() => setShowOvertimePopover(!showOvertimePopover)}
+                  className="inline-flex items-center gap-0.5 text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full font-medium border border-amber-200"
+                >
+                  💡 {overtimeResult.fixable_count}
+                </button>
+                <OvertimePanel
+                  result={overtimeResult}
+                  open={showOvertimePopover}
+                  onClose={() => setShowOvertimePopover(false)}
+                  onApprove={handleApproveOvertime}
+                  onApproveAll={handleApproveAllOvertime}
+                  onUndoApprove={handleUndoApproveOvertime}
+                />
+              </div>
             )}
-          </button>
 
-          {/* Export — telefoni + tableti */}
-          <div className="flex-shrink-0">
-            <ExportMenu machines={machines} scheduled={scheduleResult.scheduled} overrides={overrides} sirovineEnabled={sirovineEnabled} />
-          </div>
-        </div>
-      )}
+            <button
+              onClick={() => setShowOverrides(true)}
+              className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] text-gray-500 px-1.5 py-0.5 rounded-md lg:hidden"
+            >
+              <span>⏰</span>
+              {overrides.length > 0 && (
+                <span className="text-[9px] bg-yellow-100 text-yellow-700 px-1 rounded-full">{overrides.length}</span>
+              )}
+            </button>
+
+            <div className="flex-shrink-0 lg:hidden">
+              <ExportMenu machines={machines} scheduled={scheduleResult.scheduled} overrides={overrides} sirovineEnabled={sirovineEnabled} />
+            </div>
+          </>
+        )}
+      </div>
 
       {/* ======== DESKTOP CONTENT ======== */}
       <div className="hidden lg:flex lg:flex-col flex-1 min-h-0 overflow-hidden">
@@ -665,10 +647,10 @@ export default function DashboardPage() {
       <div className="lg:hidden flex-1 min-h-0 overflow-hidden">
         {activeTab === "nalozi" ? (
           <div className="h-full flex flex-col">
-            <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0 bg-white border-b border-gray-100">
+            <div className="px-2 py-1.5 flex items-center gap-1.5 flex-shrink-0 bg-white border-b border-gray-100">
               <div className="relative flex-1">
                 <svg
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-300 pointer-events-none"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-300 pointer-events-none"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -684,7 +666,7 @@ export default function DashboardPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Pretraži naloge..."
-                  className="w-full text-xs border border-gray-200 rounded-md px-2.5 py-2 pl-8 focus:outline-none focus:ring-2 focus:ring-gray-900/5 focus:border-gray-300 bg-white placeholder:text-gray-300"
+                  className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 pl-7 focus:outline-none focus:ring-2 focus:ring-gray-900/5 focus:border-gray-300 bg-white placeholder:text-gray-300"
                 />
                 {searchQuery && (
                   <button
@@ -700,7 +682,7 @@ export default function DashboardPage() {
               </div>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`p-2 rounded-md border transition-colors ${
+                className={`p-1.5 rounded-md border transition-colors ${
                   showFilters || hasActiveFilters
                     ? "bg-gray-900 border-gray-900 text-white"
                     : "border-gray-200 text-gray-400 hover:text-gray-600"
@@ -794,10 +776,10 @@ export default function DashboardPage() {
       {canAdd() && (
         <button
           onClick={() => setShowNewOrder(true)}
-          className="lg:hidden fixed z-40 w-12 h-12 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-900/20 flex items-center justify-center hover:bg-gray-800 active:scale-95 transition-all"
+          className="lg:hidden fixed z-40 w-11 h-11 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-900/20 flex items-center justify-center hover:bg-gray-800 active:scale-95 transition-all"
           style={{
-            right: 16,
-            bottom: `calc(3rem + env(safe-area-inset-bottom, 0px))`,
+            right: 12,
+            bottom: `calc(2.5rem + env(safe-area-inset-bottom, 0px))`,
           }}
         >
           <svg
