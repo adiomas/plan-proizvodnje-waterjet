@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { startOfDay } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
@@ -74,6 +74,7 @@ export default function DashboardPage() {
   const [hoveredSplitGroup, setHoveredSplitGroup] = useState<string | null>(null);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY);
   const [editingOrder, setEditingOrder] = useState<WorkOrder | null>(null);
+  const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
 
   const ganttStartDate = useMemo(() => startOfDay(new Date()), []);
 
@@ -157,6 +158,11 @@ export default function DashboardPage() {
   const handleEditOrder = (order: WorkOrder) => {
     setEditingOrder(order);
   };
+
+  const handleClickOrder = useCallback((id: string) => {
+    setFocusedOrderId(null);
+    requestAnimationFrame(() => setFocusedOrderId(id));
+  }, []);
 
   const editingSplitSibling = editingOrder?.split_group_id
     ? orders.find(
@@ -485,6 +491,7 @@ export default function DashboardPage() {
               hoveredOrderId={hoveredOrderId}
               hoveredSplitGroup={hoveredSplitGroup}
               onHoverOrder={handleHoverOrder}
+              focusedOrderId={focusedOrderId}
               columnVisibility={columnVisibility}
               onColumnVisibilityChange={setColumnVisibility}
               canEdit={canEdit}
@@ -503,6 +510,7 @@ export default function DashboardPage() {
             hoveredOrderId={hoveredOrderId}
             hoveredSplitGroup={hoveredSplitGroup}
             onHoverOrder={handleHoverOrder}
+            onClickOrder={handleClickOrder}
             onMoveOrder={handleMoveOrder}
             onUnpinOrder={handleUnpinOrder}
             overrides={overrides}
@@ -603,6 +611,7 @@ export default function DashboardPage() {
                 onUpdate={updateOrder}
                 onDelete={deleteOrder}
                 onEdit={handleEditOrder}
+                focusedOrderId={focusedOrderId}
                 canEdit={canEdit}
                 canDelete={canDelete}
                 canReorder={canReorder}
@@ -617,6 +626,7 @@ export default function DashboardPage() {
               machines={machines}
               scheduled={scheduleResult.scheduled}
               ganttStartDate={ganttStartDate}
+              onClickOrder={handleClickOrder}
               onMoveOrder={handleMoveOrder}
               onUnpinOrder={handleUnpinOrder}
               overrides={overrides}
@@ -659,6 +669,7 @@ export default function DashboardPage() {
         onClose={() => setShowNewOrder(false)}
         machines={machines}
         onAdd={(order, splitPartner) => addOrder(order, splitPartner)}
+        role={role}
       />
 
       {/* ======== Machine Dialog ======== */}
@@ -697,6 +708,7 @@ export default function DashboardPage() {
           onConvertToSplit={convertToSplit}
           onConvertToSingle={convertToSingle}
           canEdit={canEdit}
+          role={role}
         />
       )}
     </div>

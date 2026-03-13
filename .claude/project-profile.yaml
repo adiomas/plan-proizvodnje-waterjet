@@ -3,7 +3,7 @@
 # Edit this file to customize behavior
 
 project:
-  name: "web"
+  name: "plan-proizvodnje-waterjet"
   type: "fullstack"
 stack:
   language: "typescript/javascript"

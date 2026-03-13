@@ -21,6 +21,7 @@ interface TimelineProps {
   hoveredOrderId?: string | null;
   hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
+  onClickOrder?: (orderId: string) => void;
   onMoveOrder?: (orderId: string, targetDate: string) => void;
   onUnpinOrder?: (orderId: string) => void;
   overrides?: MachineOverride[];
@@ -59,6 +60,7 @@ export function Timeline({
   hoveredOrderId,
   hoveredSplitGroup,
   onHoverOrder,
+  onClickOrder,
   onMoveOrder,
   onUnpinOrder,
   overrides = [],
@@ -71,6 +73,7 @@ export function Timeline({
     y: number;
   } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dragOccurredRef = useRef(false);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragDeltaPx, setDragDeltaPx] = useState(0);
   const [unpinConfirm, setUnpinConfirm] = useState<{ orderId: string; x: number; y: number } | null>(null);
@@ -246,6 +249,7 @@ export function Timeline({
 
   // Je li nalog draggable?
   const canDrag = (s: ScheduledOrder): boolean => {
+    if (s.status === "ZAKAZANO") return false;
     if (s.order.izvedba === "ZAVRŠEN") return false;
     if (s.order.zeljeni_redoslijed !== null) return false;
     return true;
@@ -292,6 +296,8 @@ export function Timeline({
     if (!dragState) return;
 
     if (dragState.isDragging && onMoveOrder) {
+      dragOccurredRef.current = true;
+      setTimeout(() => { dragOccurredRef.current = false; }, 0);
       const targetDate = getDragTargetDate();
       if (targetDate) {
         onMoveOrder(dragState.orderId, targetDate);
@@ -682,10 +688,11 @@ export function Timeline({
                   const isBeingDragged = dragState?.orderId === s.order.id && dragState.isDragging;
                   const isPinned = s.order.najraniji_pocetak !== null;
                   const isCeka = sirovineEnabled && s.order.status_sirovine === "CEKA";
+                  const isTentative = s.status === "ZAKAZANO";
                   const draggable = canDrag(s);
 
                   const baseOpacity =
-                    s.order.izvedba === "ZAVRŠEN" ? 0.4 : 0.85;
+                    s.order.izvedba === "ZAVRŠEN" ? 0.4 : isTentative ? 0.3 : 0.85;
                   const opacity = isBeingDragged
                     ? 0.4
                     : somethingHovered
@@ -745,7 +752,7 @@ export function Timeline({
                         <div
                           key={`seg-${si}`}
                           className={`absolute rounded-sm transition-all duration-150 ${
-                            isOverlap ? "border-2 border-red-500" : s.order.hitni_rok ? "border-2 border-red-600" : ""
+                            isOverlap ? "border-2 border-red-500" : s.order.hitni_rok ? "border-2 border-red-600" : isTentative ? "border-2 border-dashed" : ""
                           } ${isThisHovered && !isBeingDragged ? "ring-2 ring-blue-400 z-10" : ""} ${
                             draggable && onMoveOrder ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
                           }`}
@@ -756,6 +763,12 @@ export function Timeline({
                             height: isThisHovered && !isBeingDragged ? ROW_HEIGHT - 6 : ROW_HEIGHT - 10,
                             backgroundColor: barColor,
                             opacity,
+                            ...(isTentative ? { borderColor: machine.color } : {}),
+                          }}
+                          onClick={() => {
+                            if (!dragOccurredRef.current) {
+                              onClickOrder?.(s.order.id);
+                            }
                           }}
                           onPointerDown={(e) => {
                             if (si === 0) handlePointerDown(e, s);
@@ -860,7 +873,10 @@ export function Timeline({
           {tooltip.order.stanje === "ROK ISTEKAO" && (
             <div className="text-red-300 font-bold">ROK ISTEKAO</div>
           )}
-          {tooltip.order.status !== "OK" && (
+          {tooltip.order.status === "ZAKAZANO" && (
+            <div className="text-blue-300">Tentativni raspored (rok izvan horizonta)</div>
+          )}
+          {tooltip.order.status !== "OK" && tooltip.order.status !== "ZAKAZANO" && (
             <div className="text-red-300 font-bold">
               {tooltip.order.status}
             </div>

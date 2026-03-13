@@ -27,6 +27,7 @@ interface WorkOrdersViewProps {
   hoveredOrderId?: string | null;
   hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
+  focusedOrderId?: string | null;
   columnVisibility?: VisibilityState;
   onColumnVisibilityChange?: OnChangeFn<VisibilityState>;
   canEdit?: (field?: string) => boolean;
@@ -103,6 +104,10 @@ function StatusBadge({ status }: { status: string }) {
       ? "bg-amber-50 text-amber-600"
       : status === "NEMA RASPOREDA"
       ? "bg-gray-100 text-gray-500"
+      : status === "ČEKA PRIPREMU"
+      ? "bg-yellow-100 text-yellow-700 border border-yellow-300"
+      : status === "ZAKAZANO"
+      ? "bg-blue-100 text-blue-700 border border-blue-300"
       : status === "NEPROVJERENO"
       ? "bg-yellow-50 text-yellow-600"
       : status === "NEMA SIROVINE"
@@ -591,6 +596,7 @@ function DesktopTable({
   hoveredOrderId,
   hoveredSplitGroup,
   onHoverOrder,
+  focusedOrderId,
   columnVisibility,
   onColumnVisibilityChange,
   canEdit,
@@ -608,6 +614,7 @@ function DesktopTable({
   hoveredOrderId?: string | null;
   hoveredSplitGroup?: string | null;
   onHoverOrder?: (id: string | null) => void;
+  focusedOrderId?: string | null;
   columnVisibility: VisibilityState;
   onColumnVisibilityChange: OnChangeFn<VisibilityState>;
   canEdit?: (field?: string) => boolean;
@@ -616,6 +623,22 @@ function DesktopTable({
   role?: UserRole;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!focusedOrderId || !scrollContainerRef.current) return;
+    const tr = scrollContainerRef.current.querySelector(
+      `tr[data-order-id="${focusedOrderId}"]`
+    );
+    if (!tr) return;
+
+    tr.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    tr.classList.add("row-focus-pulse");
+    const cleanup = () => tr.classList.remove("row-focus-pulse");
+    tr.addEventListener("animationend", cleanup, { once: true });
+    setTimeout(cleanup, 2500);
+  }, [focusedOrderId]);
 
   const handleFieldUpdate = useCallback(
     (orderId: string, field: keyof WorkOrder, rawValue: string) => {
@@ -1006,7 +1029,7 @@ function DesktopTable({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="overflow-auto flex-1 min-h-0">
+      <div ref={scrollContainerRef} className="overflow-auto flex-1 min-h-0">
         <table className="w-full text-xs border-collapse">
           <thead>
             {table.getHeaderGroups().map((hg) => (
@@ -1067,6 +1090,7 @@ function DesktopTable({
               return (
                 <tr
                   key={row.id}
+                  data-order-id={row.original.id}
                   className={`border-b border-[#eaecf0] transition-colors ${rowBg} ${isExpired ? "border-l-4 border-l-red-500" : ""} ${isDone ? "opacity-50" : ""}`}
                   onMouseEnter={() => onHoverOrder?.(row.original.id)}
                   onMouseLeave={() => onHoverOrder?.(null)}
@@ -1095,6 +1119,81 @@ function DesktopTable({
 }
 
 /* ================================================================
+   MOBILE: Card List with focus scroll
+   ================================================================ */
+
+function MobileCardList({
+  orders,
+  machines,
+  machineMap,
+  scheduleMap,
+  onUpdate,
+  onDelete,
+  onEdit,
+  canEdit,
+  canDelete,
+  sirovineEnabled,
+  role,
+  focusedOrderId,
+}: {
+  orders: WorkOrder[];
+  machines: Machine[];
+  machineMap: Map<string, Machine>;
+  scheduleMap: Map<string, ScheduledOrder>;
+  onUpdate: (id: string, updates: Partial<WorkOrder>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onEdit?: (order: WorkOrder) => void;
+  canEdit?: (field?: string) => boolean;
+  canDelete?: () => boolean;
+  sirovineEnabled?: boolean;
+  role?: UserRole;
+  focusedOrderId?: string | null;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!focusedOrderId || !scrollRef.current) return;
+    const el = scrollRef.current.querySelector(
+      `[data-order-id="${focusedOrderId}"]`
+    );
+    if (!el) return;
+
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    el.classList.add("row-focus-pulse");
+    const cleanup = () => el.classList.remove("row-focus-pulse");
+    el.addEventListener("animationend", cleanup, { once: true });
+    setTimeout(cleanup, 2500);
+  }, [focusedOrderId]);
+
+  return (
+    <div ref={scrollRef} className="md:hidden py-2 h-full overflow-auto">
+      {orders.length === 0 ? (
+        <EmptyState />
+      ) : (
+        orders.map((order) => (
+          <div key={order.id} data-order-id={order.id}>
+            <OrderCard
+              order={order}
+              machine={machineMap.get(order.machine_id)}
+              sched={scheduleMap.get(order.id)}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              sirovineEnabled={sirovineEnabled}
+              role={role}
+            />
+          </div>
+        ))
+      )}
+      <div className="h-20" />
+    </div>
+  );
+}
+
+/* ================================================================
    MAIN EXPORT: Responsive View
    ================================================================ */
 
@@ -1108,6 +1207,7 @@ export function WorkOrdersView({
   hoveredOrderId,
   hoveredSplitGroup,
   onHoverOrder,
+  focusedOrderId,
   columnVisibility,
   onColumnVisibilityChange,
   canEdit,
@@ -1140,28 +1240,20 @@ export function WorkOrdersView({
   return (
     <>
       {/* === MOBILE: Card List === */}
-      <div className="md:hidden py-2 h-full overflow-auto">
-        {orders.length === 0 ? (
-          <EmptyState />
-        ) : (
-          orders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              machine={machineMap.get(order.machine_id)}
-              sched={scheduleMap.get(order.id)}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-              onEdit={onEdit}
-              canEdit={canEdit}
-              canDelete={canDelete}
-              sirovineEnabled={sirovineEnabled}
-              role={role}
-            />
-          ))
-        )}
-        <div className="h-20" />
-      </div>
+      <MobileCardList
+        orders={orders}
+        machines={machines}
+        machineMap={machineMap}
+        scheduleMap={scheduleMap}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        canEdit={canEdit}
+        canDelete={canDelete}
+        sirovineEnabled={sirovineEnabled}
+        role={role}
+        focusedOrderId={focusedOrderId}
+      />
 
       {/* === DESKTOP: Full Table === */}
       <div className="hidden md:block h-full">
@@ -1176,6 +1268,7 @@ export function WorkOrdersView({
           hoveredOrderId={hoveredOrderId}
           hoveredSplitGroup={hoveredSplitGroup}
           onHoverOrder={onHoverOrder}
+          focusedOrderId={focusedOrderId}
           columnVisibility={effectiveVisibility}
           onColumnVisibilityChange={onColumnVisibilityChange ?? (() => {})}
           canEdit={canEdit}

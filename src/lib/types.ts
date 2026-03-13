@@ -35,6 +35,8 @@ export type ScheduleStatus =
   | "OK"
   | "GREŠKA UNOSA"
   | "NEMA RASPOREDA"
+  | "ČEKA PRIPREMU"
+  | "ZAKAZANO"
   | "PREKLAPANJE"
   | "NEPROVJERENO"
   | "NEMA SIROVINE"
@@ -71,7 +73,7 @@ export interface MachineOverride {
   created_at: string;
 }
 
-export type UserRole = "admin" | "material" | "viewer";
+export type UserRole = "admin" | "material" | "viewer" | "tehnicka_priprema";
 
 export interface UserProfile {
   id: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Machine, NewWorkOrder } from "@/lib/types";
+import type { Machine, NewWorkOrder, UserRole } from "@/lib/types";
 import { DateInput, parseDateInput, isoToDisplay } from "@/components/ui/date-input";
 import { DurationInput } from "@/components/ui/duration-input";
 
@@ -10,6 +10,7 @@ interface NewOrderSheetProps {
   onClose: () => void;
   machines: Machine[];
   onAdd: (order: NewWorkOrder, splitPartner?: NewWorkOrder) => Promise<unknown>;
+  role?: UserRole;
 }
 
 export function NewOrderSheet({
@@ -17,7 +18,9 @@ export function NewOrderSheet({
   onClose,
   machines,
   onAdd,
+  role,
 }: NewOrderSheetProps) {
+  const isTehnicka = role === "tehnicka_priprema";
   const [rnId, setRnId] = useState("");
   const [rokIsporuke, setRokIsporuke] = useState("");
   const [rokDisplay, setRokDisplay] = useState("");
@@ -77,6 +80,34 @@ export function NewOrderSheet({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!rokIsporuke) return; // rok_isporuke obavezan
+    if (isTehnicka) {
+      // Tehnicka priprema: samo rn_id + rok_isporuke
+      if (!rnId) return;
+      setSaving(true);
+      const order: NewWorkOrder = {
+        machine_id: "",
+        rn_id: rnId,
+        opis: null,
+        napomena: null,
+        rok_isporuke: rokIsporuke,
+        trajanje_h: 0,
+        zeljeni_redoslijed: null,
+        najraniji_pocetak: null,
+        izvedba: "PLANIRAN",
+        hitni_rok: null,
+        status_sirovine: null,
+        split_group_id: null,
+        split_label: null,
+        sort_order: 0,
+      };
+      await onAdd(order);
+      setSaving(false);
+      resetForm();
+      onClose();
+      return;
+    }
+
     if (!machineIdA || !parseFloat(trajanjeA)) return;
     if (isSplit && (!machineIdB || sameMachine || !parseFloat(trajanjeB))) return;
     setSaving(true);
@@ -86,7 +117,7 @@ export function NewOrderSheet({
       rn_id: rnId,
       opis: opisA || null,
       napomena: napomenaA || null,
-      rok_isporuke: rokIsporuke || null,
+      rok_isporuke: rokIsporuke,
       trajanje_h: parseFloat(trajanjeA),
       zeljeni_redoslijed: redoslijedA ? parseInt(redoslijedA) : null,
       najraniji_pocetak: najranijiA || null,
@@ -104,7 +135,7 @@ export function NewOrderSheet({
         rn_id: rnId,
         opis: opisB || null,
         napomena: napomenaB || null,
-        rok_isporuke: rokIsporuke || null,
+        rok_isporuke: rokIsporuke,
         trajanje_h: parseFloat(trajanjeB),
         zeljeni_redoslijed: redoslijedB ? parseInt(redoslijedB) : null,
         najraniji_pocetak: najranijiB || null,
@@ -204,6 +235,28 @@ export function NewOrderSheet({
 
   const formFields = (compact: boolean) => {
     const ic = compact ? inputDesktop : inputMobile;
+
+    // Tehnicka priprema: pojednostavljen form — samo RN ID + Rok isporuke
+    if (isTehnicka) {
+      return (
+        <div className={compact ? "space-y-2.5" : "space-y-4"}>
+          <div className={compact ? "grid grid-cols-2 gap-2" : "grid grid-cols-2 gap-3"}>
+            <div>
+              <label className={labelClass}>Broj RN <span className="text-red-400">*</span></label>
+              <input value={rnId} onChange={(e) => setRnId(e.target.value)} required placeholder="npr. RN-001" className={ic} />
+            </div>
+            <div>
+              <label className={labelClass}>Rok isporuke <span className="text-red-400">*</span></label>
+              <DateInput value={rokIsporuke} displayValue={rokDisplay} onChange={(iso, disp) => { setRokIsporuke(iso); setRokDisplay(disp); }} onDisplayChange={(v) => { setRokDisplay(v); const iso = parseDateInput(v); if (iso) setRokIsporuke(iso); else if (!v) setRokIsporuke(""); }} className={ic} />
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-400 leading-snug">
+            Najava naloga. Admin će naknadno dodati stroj, trajanje i ostale detalje.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className={compact ? "space-y-2.5" : "space-y-4"}>
         {/* Dijeljeni: RN ID + Rok */}
@@ -213,7 +266,7 @@ export function NewOrderSheet({
             <input value={rnId} onChange={(e) => setRnId(e.target.value)} required placeholder="npr. RN-001" className={ic} />
           </div>
           <div>
-            <label className={labelClass}>Rok isporuke</label>
+            <label className={labelClass}>Rok isporuke <span className="text-red-400">*</span></label>
             <DateInput value={rokIsporuke} displayValue={rokDisplay} onChange={(iso, disp) => { setRokIsporuke(iso); setRokDisplay(disp); }} onDisplayChange={(v) => { setRokDisplay(v); const iso = parseDateInput(v); if (iso) setRokIsporuke(iso); else if (!v) setRokIsporuke(""); }} className={ic} />
           </div>
         </div>
@@ -298,8 +351,8 @@ export function NewOrderSheet({
               <button type="button" onClick={onClose} className="flex-1 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 Odustani
               </button>
-              <button type="submit" disabled={saving || !!sameMachine || !parseFloat(trajanjeA) || (isSplit && !parseFloat(trajanjeB))} className="flex-[2] py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors">
-                {saving ? "Spremam..." : isSplit ? "Dodaj split nalog" : "Dodaj nalog"}
+              <button type="submit" disabled={saving || !rokIsporuke || (!isTehnicka && (!!sameMachine || !parseFloat(trajanjeA) || (isSplit && !parseFloat(trajanjeB))))} className="flex-[2] py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+                {saving ? "Spremam..." : isTehnicka ? "Najavi nalog" : isSplit ? "Dodaj split nalog" : "Dodaj nalog"}
               </button>
             </div>
           </form>
@@ -329,8 +382,8 @@ export function NewOrderSheet({
               <button type="button" onClick={onClose} className="flex-1 py-3 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-[0.98] transition-transform">
                 Odustani
               </button>
-              <button type="submit" disabled={saving || !!sameMachine || !parseFloat(trajanjeA) || (isSplit && !parseFloat(trajanjeB))} className="flex-[2] py-3 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-emerald-600/20">
-                {saving ? "Spremam..." : isSplit ? "Dodaj split nalog" : "Dodaj nalog"}
+              <button type="submit" disabled={saving || !rokIsporuke || (!isTehnicka && (!!sameMachine || !parseFloat(trajanjeA) || (isSplit && !parseFloat(trajanjeB))))} className="flex-[2] py-3 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-emerald-600/20">
+                {saving ? "Spremam..." : isTehnicka ? "Najavi nalog" : isSplit ? "Dodaj split nalog" : "Dodaj nalog"}
               </button>
             </div>
           </div>

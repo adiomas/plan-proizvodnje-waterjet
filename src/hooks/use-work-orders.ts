@@ -35,6 +35,10 @@ export function useWorkOrders() {
   const addOrder = async (order: NewWorkOrder, splitPartner?: NewWorkOrder) => {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) return;
+    if (!order.rok_isporuke) {
+      console.error("rok_isporuke je obavezan");
+      return null;
+    }
 
     const maxOrder = orders.length > 0
       ? Math.max(...orders.map((o) => o.sort_order))

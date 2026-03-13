@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Machine, WorkOrder, NewWorkOrder } from "@/lib/types";
+import type { Machine, WorkOrder, NewWorkOrder, UserRole } from "@/lib/types";
 import { DateInput, parseDateInput, isoToDisplay } from "@/components/ui/date-input";
 import { DurationInput } from "@/components/ui/duration-input";
 
@@ -15,6 +15,7 @@ interface EditOrderDialogProps {
   onConvertToSplit: (orderId: string, updatesA: Partial<WorkOrder>, newPartB: NewWorkOrder) => Promise<boolean>;
   onConvertToSingle: (orderId: string, updatesA: Partial<WorkOrder>) => Promise<boolean>;
   canEdit?: (field?: string) => boolean;
+  role?: UserRole;
 }
 
 export function EditOrderDialog({
@@ -27,7 +28,9 @@ export function EditOrderDialog({
   onConvertToSplit,
   onConvertToSingle,
   canEdit,
+  role,
 }: EditOrderDialogProps) {
+  const isTehnicka = role === "tehnicka_priprema";
   const wasSplit = !!splitSibling;
   const [splitEnabled, setSplitEnabled] = useState(wasSplit);
 
@@ -70,6 +73,15 @@ export function EditOrderDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!rokIsporuke) return; // rok_isporuke obavezan
+    if (isTehnicka) {
+      // Tehnicka priprema: samo rn_id + rok_isporuke
+      setSaving(true);
+      await onUpdate(order.id, { rn_id: rnId, rok_isporuke: rokIsporuke });
+      setSaving(false);
+      onClose();
+      return;
+    }
     if (!machineIdA) return;
     if (splitEnabled && (!machineIdB || sameMachine)) return;
     setSaving(true);
@@ -229,13 +241,13 @@ export function EditOrderDialog({
             <input value={rnId} onChange={(e) => setRnId(e.target.value)} required disabled={!canEdit?.("rn_id")} className={ic} />
           </div>
           <div>
-            <label className={labelClass}>Rok isporuke</label>
-            <DateInput value={rokIsporuke} displayValue={rokDisplay} onChange={(iso, disp) => { setRokIsporuke(iso); setRokDisplay(disp); }} onDisplayChange={(v) => { setRokDisplay(v); const iso = parseDateInput(v); if (iso) setRokIsporuke(iso); else if (!v) setRokIsporuke(""); }} disabled={!canEdit?.("rok_isporuke")} className={ic} />
+            <label className={labelClass}>Rok isporuke <span className="text-red-400">*</span></label>
+            <DateInput value={rokIsporuke} displayValue={rokDisplay} onChange={(iso, disp) => { if (iso) { setRokIsporuke(iso); setRokDisplay(disp); } }} onDisplayChange={(v) => { setRokDisplay(v); const iso = parseDateInput(v); if (iso) setRokIsporuke(iso); }} disabled={!canEdit?.("rok_isporuke")} className={ic} />
           </div>
         </div>
 
-        {/* Split toggle — admin only */}
-        {canEdit?.() && (
+        {/* Split toggle — admin only, sakriven za tehnicka_priprema */}
+        {canEdit?.() && !isTehnicka && (
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -317,7 +329,7 @@ export function EditOrderDialog({
               <button type="button" onClick={onClose} className="flex-1 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 Odustani
               </button>
-              <button type="submit" disabled={saving || !!sameMachine || (splitEnabled && !machineIdB)} className="flex-[2] py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+              <button type="submit" disabled={saving || !rokIsporuke || (!isTehnicka && (!!sameMachine || (splitEnabled && !machineIdB)))} className="flex-[2] py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors">
                 {saving ? "Spremam..." : "Spremi promjene"}
               </button>
             </div>
@@ -348,7 +360,7 @@ export function EditOrderDialog({
               <button type="button" onClick={onClose} className="flex-1 py-3 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-[0.98] transition-transform">
                 Odustani
               </button>
-              <button type="submit" disabled={saving || !!sameMachine || (splitEnabled && !machineIdB)} className="flex-[2] py-3 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-emerald-600/20">
+              <button type="submit" disabled={saving || !rokIsporuke || (!isTehnicka && (!!sameMachine || (splitEnabled && !machineIdB)))} className="flex-[2] py-3 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-emerald-600/20">
                 {saving ? "Spremam..." : "Spremi promjene"}
               </button>
             </div>

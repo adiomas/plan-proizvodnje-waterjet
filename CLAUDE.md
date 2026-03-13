@@ -44,6 +44,11 @@ plan_proizvodnje/
 
 GANT formulas reference NALOZI columns by absolute letter (e.g., `NALOZI!$E$5:$E$304`, `NALOZI!$O$5:$O$304`). If NALOZI column order changes, update both `formulas.py` and `gant.py`.
 
+## Supabase
+
+- Project ID: `pgrgbfsltlcqzootkuaa`
+- Koristiti MCP Supabase alate s ovim project ID-em
+
 ## Language
 
 All user-facing labels, comments, and variable names in Croatian. Code comments and docstrings also in Croatian.
