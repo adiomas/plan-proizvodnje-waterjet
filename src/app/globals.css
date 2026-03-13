@@ -77,3 +77,15 @@ input, textarea, [contenteditable], .selectable {
 .row-focus-pulse {
   animation: focusPulse 2s ease-out;
 }
+
+/* ===== Bottom Navbar padding ===== */
+.pb-navbar {
+  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* lg:pb-safe — safe area only on desktop (where navbar doesn't handle it) */
+@media (min-width: 1024px) {
+  .lg\:pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}

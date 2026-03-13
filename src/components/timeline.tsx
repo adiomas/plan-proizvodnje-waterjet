@@ -66,7 +66,7 @@ export function Timeline({
   onUnpinOrder,
   overrides = [],
   sirovineEnabled = false,
-  overtimeSuggestions: _overtimeSuggestions = [],
+  overtimeSuggestions = [],
 }: TimelineProps) {
   const [zoom, setZoom] = useState<ZoomLevel>("day");
   const [tooltip, setTooltip] = useState<{
@@ -121,6 +121,38 @@ export function Timeline({
       return wh !== null && wh.hours > WORK_HOURS;
     });
   }, [ganttStartDate, machines, overrides]);
+
+  // Overtime suggestion lookup: (machineId, dateStr) → suggestion
+  const suggestionMap = useMemo(() => {
+    const map = new Map<string, OvertimeSuggestion>();
+    for (const s of overtimeSuggestions) {
+      map.set(`${s.machine_id}-${s.date}`, s);
+    }
+    return map;
+  }, [overtimeSuggestions]);
+
+  // Set of rn_ids that would be fixed by suggestions
+  const fixableRnIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of overtimeSuggestions) {
+      for (const rn of s.orders_fixed) set.add(rn);
+    }
+    return set;
+  }, [overtimeSuggestions]);
+
+  const dayHasSuggestion = useCallback((dayIdx: number, machineId?: string): OvertimeSuggestion | undefined => {
+    const day = addDays(ganttStartDate, dayIdx);
+    const dateStr = format(day, "yyyy-MM-dd");
+    if (machineId) {
+      return suggestionMap.get(`${machineId}-${dateStr}`);
+    }
+    // Bilo koji stroj
+    for (const m of machines) {
+      const s = suggestionMap.get(`${m.id}-${dateStr}`);
+      if (s) return s;
+    }
+    return undefined;
+  }, [ganttStartDate, machines, suggestionMap]);
 
   // Generiraj dane
   const days = useMemo(() => {
@@ -438,6 +470,7 @@ export function Timeline({
                   const weekend = getDay(day) === 0 || getDay(day) === 6;
                   const dp = dayPositions[i];
                   const hasOv = dayHasOverride(i);
+                  const hasSugg = dayHasSuggestion(i);
                   return (
                     <div
                       key={i}
@@ -446,11 +479,19 @@ export function Timeline({
                           ? "bg-gray-100 text-gray-400"
                           : hasOv
                           ? "bg-yellow-50 text-yellow-700"
+                          : hasSugg
+                          ? "text-amber-700"
                           : "text-gray-600"
                       }`}
-                      style={{ width: dp.width }}
+                      style={{
+                        width: dp.width,
+                        ...(hasSugg ? {
+                          background: "repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(245,158,11,0.15) 3px, rgba(245,158,11,0.15) 6px)",
+                        } : {}),
+                      }}
+                      title={hasSugg ? `Predloženi prekovremeni: ${hasSugg.work_start}–${hasSugg.work_end} — popravlja ${hasSugg.orders_fixed.length} naloga` : undefined}
                     >
-                      {formatDayShort(day)}{hasOv ? " ⚡" : ""}
+                      {formatDayShort(day)}{hasOv ? " ⚡" : hasSugg ? " 💡" : ""}
                     </div>
                   );
                 })}
@@ -683,6 +724,7 @@ export function Timeline({
                   const gaps = getWeekendGaps(segments);
                   const isOverlap = s.status === "PREKLAPANJE";
                   const isExpired = s.stanje === "ROK ISTEKAO";
+                  const isFixable = (s.stanje === "KASNI" || s.stanje === "KRITIČNO") && fixableRnIds.has(s.order.rn_id);
                   const barColor = isOverlap ? "#F4CCCC" : isExpired ? "#DC2626" : machine.color;
                   const isThisHovered = hoveredOrderId === s.order.id
                     || (!!hoveredSplitGroup && s.order.split_group_id === hoveredSplitGroup);
@@ -754,7 +796,7 @@ export function Timeline({
                         <div
                           key={`seg-${si}`}
                           className={`absolute rounded-sm transition-all duration-150 ${
-                            isOverlap ? "border-2 border-red-500" : s.order.hitni_rok ? "border-2 border-red-600" : isTentative ? "border-2 border-dashed" : ""
+                            isOverlap ? "border-2 border-red-500" : isFixable ? "border-2 border-amber-400 animate-pulse" : s.order.hitni_rok ? "border-2 border-red-600" : isTentative ? "border-2 border-dashed" : ""
                           } ${isThisHovered && !isBeingDragged ? "ring-2 ring-blue-400 z-10" : ""} ${
                             draggable && onMoveOrder ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
                           }`}

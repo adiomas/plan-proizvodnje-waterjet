@@ -23,6 +23,7 @@ import { OverrideModal } from "@/components/override-modal";
 import { useOvertimeSuggestions } from "@/hooks/use-overtime-suggestions";
 import { OvertimePanel } from "@/components/overtime-panel";
 import { PwaRefreshButton } from "@/components/pwa-refresh-button";
+import { BottomNavbar } from "@/components/bottom-navbar";
 import type { OvertimeSuggestion } from "@/lib/types";
 
 type Tab = "nalozi" | "gant";
@@ -233,9 +234,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-white">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-white pb-navbar lg:pb-0">
       {/* ======== HEADER ======== */}
-      <header className="bg-white border-b border-gray-200 px-3 py-1.5 sm:py-2.5 pt-safe flex items-center justify-between flex-shrink-0">
+      <header className="bg-white border-b border-gray-200 px-3 py-1.5 sm:py-2.5 pt-safe hidden lg:flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-md bg-gray-900 flex items-center justify-center flex-shrink-0">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -395,109 +396,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ======== MOBILE: Tab bar + status badges (combined row) ======== */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-3 py-1.5 flex items-center gap-2 flex-shrink-0 overflow-x-auto">
-        <div className="relative flex bg-gray-100 rounded-md p-0.5 flex-shrink-0" style={{ minWidth: 160 }}>
-          <div
-            className="absolute top-0.5 bottom-0.5 bg-white rounded shadow-sm transition-transform duration-200 ease-out"
-            style={{
-              width: "50%",
-              transform:
-                activeTab === "nalozi"
-                  ? "translateX(0)"
-                  : "translateX(100%)",
-            }}
-          />
-          <button
-            onClick={() => setActiveTab("nalozi")}
-            className={`relative z-10 flex-1 text-xs font-medium py-1 px-3 rounded text-center transition-colors ${
-              activeTab === "nalozi" ? "text-gray-900" : "text-gray-400"
-            }`}
-          >
-            Nalozi
-            <span className="ml-1 text-[10px] tabular-nums opacity-50">
-              {activeCount}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab("gant")}
-            className={`relative z-10 flex-1 text-xs font-medium py-1 px-3 rounded text-center transition-colors ${
-              activeTab === "gant" ? "text-gray-900" : "text-gray-400"
-            }`}
-          >
-            Gant
-          </button>
-        </div>
-        {/* Status badges inline */}
-        {lateCount > 0 && (
-          <span className="sm:hidden flex-shrink-0 text-[9px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full font-medium border border-amber-100">
-            {lateCount} kasni
-          </span>
-        )}
-        {criticalCount > 0 && (
-          <span className="sm:hidden flex-shrink-0 text-[9px] bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded-full font-medium border border-yellow-200">
-            {criticalCount} kritično
-          </span>
-        )}
-        {expiredCount > 0 && (
-          <span className="sm:hidden flex-shrink-0 text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold border border-red-300">
-            {expiredCount} istekao
-          </span>
-        )}
-
-        {/* Admin quick actions inline */}
-        {role === "admin" && (
-          <>
-            <div className="sm:hidden flex-shrink-0 h-3 w-px bg-gray-200" />
-            <button
-              onClick={toggleSirovine}
-              className={`sm:hidden flex-shrink-0 inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border transition-colors ${
-                sirovineEnabled
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                  : "bg-gray-50 border-gray-200 text-gray-400"
-              }`}
-            >
-              <div className={`w-5 h-3 rounded-full relative transition-colors ${sirovineEnabled ? "bg-emerald-500" : "bg-gray-300"}`}>
-                <div className={`absolute top-0.5 w-2 h-2 rounded-full bg-white shadow-sm transition-transform ${sirovineEnabled ? "translate-x-2.5" : "translate-x-0.5"}`} />
-              </div>
-              Sir.
-            </button>
-
-            {overtimeResult.fixable_count > 0 && (
-              <div className="relative sm:hidden flex-shrink-0">
-                <button
-                  onClick={() => setShowOvertimePopover(!showOvertimePopover)}
-                  className="inline-flex items-center gap-0.5 text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full font-medium border border-amber-200"
-                >
-                  💡 {overtimeResult.fixable_count}
-                </button>
-                <OvertimePanel
-                  result={overtimeResult}
-                  open={showOvertimePopover}
-                  onClose={() => setShowOvertimePopover(false)}
-                  onApprove={handleApproveOvertime}
-                  onApproveAll={handleApproveAllOvertime}
-                  onUndoApprove={handleUndoApproveOvertime}
-                />
-              </div>
-            )}
-
-            <button
-              onClick={() => setShowOverrides(true)}
-              className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] text-gray-500 px-1.5 py-0.5 rounded-md lg:hidden"
-            >
-              <span>⏰</span>
-              {overrides.length > 0 && (
-                <span className="text-[9px] bg-yellow-100 text-yellow-700 px-1 rounded-full">{overrides.length}</span>
-              )}
-            </button>
-
-            <div className="flex-shrink-0 lg:hidden">
-              <ExportMenu machines={machines} scheduled={scheduleResult.scheduled} overrides={overrides} sirovineEnabled={sirovineEnabled} />
-            </div>
-          </>
-        )}
-      </div>
 
       {/* ======== DESKTOP CONTENT ======== */}
       <div className="hidden lg:flex lg:flex-col flex-1 min-h-0 overflow-hidden">
@@ -772,29 +670,46 @@ export default function DashboardPage() {
       {/* ======== STATUS BAR ======== */}
       <StatusBar scheduled={scheduleResult.scheduled} machines={machines} />
 
-      {/* ======== FAB — Add Order (mobile only, admin only) ======== */}
-      {canAdd() && (
-        <button
-          onClick={() => setShowNewOrder(true)}
-          className="lg:hidden fixed z-40 w-11 h-11 bg-gray-900 text-white rounded-full shadow-lg shadow-gray-900/20 flex items-center justify-center hover:bg-gray-800 active:scale-95 transition-all"
-          style={{
-            right: 12,
-            bottom: `calc(2.5rem + env(safe-area-inset-bottom, 0px))`,
-          }}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
+
+      {/* ======== BOTTOM NAVBAR (mobile only) ======== */}
+      <BottomNavbar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onAddClick={() => setShowNewOrder(true)}
+        canAdd={canAdd()}
+        role={role}
+        activeOrderCount={activeCount}
+        overlapCount={overlapCount}
+        lateCount={lateCount}
+        criticalCount={criticalCount}
+        expiredCount={expiredCount}
+        hitniRokCount={hitniRokCount}
+        sirovineEnabled={sirovineEnabled}
+        onToggleSirovine={toggleSirovine}
+        overtimeFixableCount={overtimeResult.fixable_count}
+        onShowOvertime={() => setShowOvertimePopover(true)}
+        overridesCount={overrides.length}
+        onShowOverrides={() => setShowOverrides(true)}
+        onShowMachines={() => setShowMachineDialog(true)}
+        machines={machines}
+        scheduled={scheduleResult.scheduled}
+        overrides={overrides}
+        onShowInfo={() => setShowInfo(true)}
+        onLogout={handleLogout}
+      />
+
+      {/* ======== MOBILE: Overtime Panel (triggered from BottomNavbar) ======== */}
+      {role === "admin" && overtimeResult.fixable_count > 0 && (
+        <div className="sm:hidden">
+          <OvertimePanel
+            result={overtimeResult}
+            open={showOvertimePopover}
+            onClose={() => setShowOvertimePopover(false)}
+            onApprove={handleApproveOvertime}
+            onApproveAll={handleApproveAllOvertime}
+            onUndoApprove={handleUndoApproveOvertime}
+          />
+        </div>
       )}
 
       {/* ======== BOTTOM SHEET: New Order ======== */}

@@ -1,208 +1,256 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
-import type { OvertimeSuggestion, OvertimeResult } from "@/lib/types";
+import type { OvertimeSuggestion, OvertimeSuggestionResult } from "@/lib/types";
+import { formatDayDate } from "@/lib/utils";
+
+interface ApprovedEntry {
+  suggestion: OvertimeSuggestion;
+  overrideId: string;
+}
 
 interface OvertimePanelProps {
-  result: OvertimeResult;
+  result: OvertimeSuggestionResult;
   open: boolean;
   onClose: () => void;
-  onApprove: (s: OvertimeSuggestion) => Promise<string | null>;
+  onApprove: (suggestion: OvertimeSuggestion) => Promise<string | null>;
   onApproveAll: (suggestions: OvertimeSuggestion[]) => Promise<(string | null)[]>;
   onUndoApprove: (overrideId: string) => Promise<void>;
 }
 
-export function OvertimePanel({
-  result,
-  open,
-  onClose,
-  onApprove,
-  onApproveAll,
-  onUndoApprove,
-}: OvertimePanelProps) {
-  const [approving, setApproving] = useState<string | null>(null);
+export function OvertimePanel({ result, open, onClose, onApprove, onApproveAll, onUndoApprove }: OvertimePanelProps) {
+  const [approving, setApproving] = useState<Set<string>>(new Set());
   const [approvingAll, setApprovingAll] = useState(false);
-  // Praćenje odobrenih prijedloga: date+machine -> overrideId
-  const [approved, setApproved] = useState<Map<string, string>>(new Map());
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [approvedMap, setApprovedMap] = useState<Map<string, ApprovedEntry>>(new Map());
+  const [undoing, setUndoing] = useState<Set<string>>(new Set());
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Zatvori na klik izvan panela (samo za desktop)
+  const { suggestions, total_late, total_critical, fixable_count, total_overtime_hours } = result;
+
+  // Click outside zatvara
   useEffect(() => {
     if (!open) return;
-    function handleClick(e: MouseEvent) {
+    const handler = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         onClose();
       }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [open, onClose]);
 
   if (!open) return null;
 
-  const formatDate = (iso: string) => {
-    const [y, m, d] = iso.split("-");
-    return `${d}.${m}.${y}.`;
-  };
+  const visibleSuggestions = suggestions.filter(
+    (s) => !dismissed.has(`${s.machine_id}-${s.date}`)
+  );
 
-  const handleApprove = async (s: OvertimeSuggestion) => {
-    const key = `${s.machine_id}:${s.date}`;
-    setApproving(key);
+  const approvedEntries = Array.from(approvedMap.values());
+
+  const handleApprove = async (suggestion: OvertimeSuggestion) => {
+    const key = `${suggestion.machine_id}-${suggestion.date}`;
+    setApproving((prev) => new Set(prev).add(key));
     try {
-      const id = await onApprove(s);
-      if (id) {
-        setApproved((prev) => new Map(prev).set(key, id));
+      const overrideId = await onApprove(suggestion);
+      if (overrideId) {
+        setApprovedMap((prev) => new Map(prev).set(key, { suggestion, overrideId }));
       }
     } finally {
-      setApproving(null);
-    }
-  };
-
-  const handleUndo = async (s: OvertimeSuggestion) => {
-    const key = `${s.machine_id}:${s.date}`;
-    const overrideId = approved.get(key);
-    if (!overrideId) return;
-    setApproving(key);
-    try {
-      await onUndoApprove(overrideId);
-      setApproved((prev) => {
-        const next = new Map(prev);
+      setApproving((prev) => {
+        const next = new Set(prev);
         next.delete(key);
         return next;
       });
-    } finally {
-      setApproving(null);
     }
   };
 
   const handleApproveAll = async () => {
-    const pending = result.suggestions.filter(
-      (s) => !approved.has(`${s.machine_id}:${s.date}`)
-    );
-    if (pending.length === 0) return;
     setApprovingAll(true);
     try {
-      const ids = await onApproveAll(pending);
-      setApproved((prev) => {
-        const next = new Map(prev);
-        pending.forEach((s, i) => {
-          const id = ids[i];
-          if (id) next.set(`${s.machine_id}:${s.date}`, id);
-        });
-        return next;
+      const ids = await onApproveAll(visibleSuggestions);
+      const newApproved = new Map(approvedMap);
+      visibleSuggestions.forEach((s, i) => {
+        const id = ids[i];
+        if (id) {
+          const key = `${s.machine_id}-${s.date}`;
+          newApproved.set(key, { suggestion: s, overrideId: id });
+        }
       });
+      setApprovedMap(newApproved);
     } finally {
       setApprovingAll(false);
     }
   };
 
-  const pendingCount = result.suggestions.filter(
-    (s) => !approved.has(`${s.machine_id}:${s.date}`)
-  ).length;
+  const handleUndo = async (key: string, overrideId: string) => {
+    setUndoing((prev) => new Set(prev).add(key));
+    try {
+      await onUndoApprove(overrideId);
+      setApprovedMap((prev) => {
+        const next = new Map(prev);
+        next.delete(key);
+        return next;
+      });
+    } finally {
+      setUndoing((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
 
-  const panelContent = (
-    <>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-xs font-semibold text-amber-800">
-          Prijedlozi prekovremenog ({result.fixable_count})
-        </h3>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 text-sm leading-none"
-        >
-          ✕
-        </button>
-      </div>
+  const handleDismiss = (suggestion: OvertimeSuggestion) => {
+    setDismissed((prev) => new Set(prev).add(`${suggestion.machine_id}-${suggestion.date}`));
+  };
 
-      {result.suggestions.length === 0 ? (
-        <p className="text-xs text-gray-500 py-2">Nema prijedloga.</p>
-      ) : (
-        <>
-          <div className="max-h-60 overflow-y-auto space-y-1.5">
-            {result.suggestions.map((s) => {
-              const key = `${s.machine_id}:${s.date}`;
-              const isApproved = approved.has(key);
-              const isLoading = approving === key;
-
-              return (
-                <div
-                  key={key}
-                  className={`text-xs p-2 rounded border ${
-                    isApproved
-                      ? "bg-green-50 border-green-200"
-                      : "bg-amber-50 border-amber-100"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-medium text-gray-800">
-                        {s.machine_name}
-                      </span>
-                      <span className="text-gray-500 ml-1">
-                        {formatDate(s.date)}
-                      </span>
-                    </div>
-                    {isApproved ? (
-                      <button
-                        onClick={() => handleUndo(s)}
-                        disabled={isLoading}
-                        className="text-[10px] text-red-600 hover:text-red-800 disabled:opacity-50"
-                      >
-                        {isLoading ? "..." : "Poništi"}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleApprove(s)}
-                        disabled={isLoading}
-                        className="text-[10px] text-amber-700 hover:text-amber-900 font-medium disabled:opacity-50"
-                      >
-                        {isLoading ? "..." : "Odobri"}
-                      </button>
-                    )}
-                  </div>
-                  <div className="text-gray-500 mt-0.5">
-                    {s.work_start}–{s.work_end} (+{s.extra_hours}h) · {s.affected_orders} nalog(a)
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {pendingCount > 1 && (
-            <button
-              onClick={handleApproveAll}
-              disabled={approvingAll}
-              className="mt-2 w-full text-xs py-1.5 bg-amber-100 text-amber-800 rounded hover:bg-amber-200 font-medium disabled:opacity-50 transition-colors"
-            >
-              {approvingAll ? "Odobravanje..." : `Odobri sve (${pendingCount})`}
-            </button>
-          )}
-        </>
-      )}
-    </>
-  );
-
-  // Desktop: absolute dropdown
-  // Mobile: portal bottom sheet
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
-
-  if (isMobile) {
-    return createPortal(
-      <div className="fixed inset-0 z-50 flex items-end">
-        <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-        <div ref={panelRef} className="relative w-full bg-white rounded-t-xl p-4 pb-safe max-h-[70dvh] overflow-y-auto animate-sheet-up">
-          <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-3" />
-          {panelContent}
-        </div>
-      </div>,
-      document.body
-    );
-  }
+  const shiftLabel = (s: OvertimeSuggestion) =>
+    s.shift_type === "weekday_evening"
+      ? `${s.work_start}–${s.work_end} (večernja)`
+      : `${s.work_start}–${s.work_end} (vikend)`;
 
   return (
-    <div ref={panelRef} className="absolute top-full right-0 mt-1 z-50 w-80 bg-white border border-amber-200 rounded-lg shadow-lg p-3">
-      {panelContent}
-    </div>
+    <>
+      {/* Backdrop — samo mobitel */}
+      <div className="sm:hidden fixed inset-0 bg-black/30 z-40" onClick={onClose} />
+
+      <div
+        ref={panelRef}
+        className="fixed inset-x-0 bottom-0 z-50 w-full rounded-t-2xl sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-1 sm:bottom-auto sm:w-[380px] sm:rounded-lg bg-white border border-gray-200 shadow-xl max-h-[75dvh] sm:max-h-none"
+      >
+        {/* Drag handle — samo mobitel */}
+        <div className="sm:hidden flex justify-center pt-2 pb-1">
+          <div className="w-8 h-1 rounded-full bg-gray-300" />
+        </div>
+
+        {/* Header */}
+      <div className="px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-amber-600 text-sm">💡</span>
+            <span className="text-xs font-semibold text-gray-800">
+              Prijedlog prekovremenog
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 p-0.5 rounded hover:bg-gray-100 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <p className="text-[11px] text-gray-500 mt-1">
+          {fixable_count} od {total_late + total_critical} kasnih naloga može stići na vrijeme
+          {total_overtime_hours > 0 && (
+            <span className="ml-1 text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
+              {total_overtime_hours}h ukupno
+            </span>
+          )}
+        </p>
+      </div>
+
+      {/* Body */}
+      <div className="overflow-y-auto p-3 space-y-2 sm:max-h-[400px]">
+        {/* Odobreni prijedlozi */}
+        {approvedEntries.map(({ suggestion: s, overrideId }) => {
+          const key = `${s.machine_id}-${s.date}`;
+          const isUndoing = undoing.has(key);
+          const date = new Date(s.date + "T00:00:00");
+
+          return (
+            <div
+              key={`approved-${key}`}
+              className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 text-xs"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-emerald-600">✓</span>
+                    <span className="font-medium text-emerald-800">
+                      {s.machine_name} — {formatDayDate(date)}
+                    </span>
+                  </div>
+                  <div className="text-emerald-600 mt-0.5 ml-5">
+                    {shiftLabel(s)} · Odobreno
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleUndo(key, overrideId)}
+                  disabled={isUndoing}
+                  className="text-[11px] font-medium text-emerald-700 hover:text-red-600 px-2 py-1 rounded-md hover:bg-red-50 disabled:opacity-50 transition-colors flex-shrink-0"
+                >
+                  {isUndoing ? "..." : "Poništi"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Pending prijedlozi */}
+        {visibleSuggestions.length === 0 && approvedEntries.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-4">Svi prijedlozi odbačeni</p>
+        ) : (
+          visibleSuggestions.map((s) => {
+            const key = `${s.machine_id}-${s.date}`;
+            const isApproving = approving.has(key);
+            const date = new Date(s.date + "T00:00:00");
+
+            return (
+              <div
+                key={key}
+                className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-xs"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-gray-800">
+                      {s.machine_name} — {formatDayDate(date)}
+                    </div>
+                    <div className="text-gray-500 mt-0.5">
+                      {shiftLabel(s)} · {s.hours_gained}h
+                    </div>
+                    <div className="text-amber-700 mt-0.5 font-medium">
+                      {s.orders_fixed.join(", ")}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => handleApprove(s)}
+                      disabled={isApproving || approvingAll}
+                      className="text-[11px] font-medium bg-emerald-500 text-white px-2.5 py-1 rounded-md hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+                    >
+                      {isApproving ? "..." : "Odobri"}
+                    </button>
+                    <button
+                      onClick={() => handleDismiss(s)}
+                      className="text-[11px] text-gray-400 hover:text-gray-600 px-1.5 py-1 rounded-md hover:bg-gray-100 transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Footer — Odobri sve */}
+      {visibleSuggestions.length > 1 && (
+        <div className="px-4 py-3 border-t border-gray-100">
+          <button
+            onClick={handleApproveAll}
+            disabled={approvingAll}
+            className="w-full text-[11px] font-medium text-amber-700 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-3 py-2 rounded-md transition-colors disabled:opacity-50"
+          >
+            {approvingAll ? "Odobravam..." : `Odobri sve (${visibleSuggestions.length})`}
+          </button>
+        </div>
+      )}
+      </div>
+    </>
   );
 }
