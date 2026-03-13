@@ -1191,7 +1191,7 @@ function MobileCardList({
           </div>
         ))
       )}
-      <div className="h-20" />
+      <div className="h-2" />
     </div>
   );
 }
