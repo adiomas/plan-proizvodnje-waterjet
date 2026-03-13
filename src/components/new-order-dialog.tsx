@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Machine, NewWorkOrder } from "@/lib/types";
-import { DateInput, parseDateInput } from "@/components/ui/date-input";
+import { DateInput, parseDateInput, isoToDisplay } from "@/components/ui/date-input";
 
 interface NewOrderSheetProps {
   open: boolean;
@@ -31,6 +31,8 @@ export function NewOrderSheet({
   const [redoslijedA, setRedoslijedA] = useState("");
   const [najranijiA, setNajranijiA] = useState("");
   const [najranijiDisplayA, setNajranijiDisplayA] = useState("");
+  const [hitniRokA, setHitniRokA] = useState("");
+  const [hitniRokDisplayA, setHitniRokDisplayA] = useState("");
 
   // Dio B
   const [machineIdB, setMachineIdB] = useState("");
@@ -40,6 +42,8 @@ export function NewOrderSheet({
   const [redoslijedB, setRedoslijedB] = useState("");
   const [najranijiB, setNajranijiB] = useState("");
   const [najranijiDisplayB, setNajranijiDisplayB] = useState("");
+  const [hitniRokB, setHitniRokB] = useState("");
+  const [hitniRokDisplayB, setHitniRokDisplayB] = useState("");
 
   if (!open) return null;
 
@@ -57,6 +61,8 @@ export function NewOrderSheet({
     setRedoslijedA("");
     setNajranijiA("");
     setNajranijiDisplayA("");
+    setHitniRokA("");
+    setHitniRokDisplayA("");
     setMachineIdB("");
     setTrajanjeB("1");
     setOpisB("");
@@ -64,6 +70,8 @@ export function NewOrderSheet({
     setRedoslijedB("");
     setNajranijiB("");
     setNajranijiDisplayB("");
+    setHitniRokB("");
+    setHitniRokDisplayB("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,7 +90,7 @@ export function NewOrderSheet({
       zeljeni_redoslijed: redoslijedA ? parseInt(redoslijedA) : null,
       najraniji_pocetak: najranijiA || null,
       izvedba: "PLANIRAN",
-      hitno: false,
+      hitni_rok: hitniRokA || null,
       status_sirovine: null,
       split_group_id: null,
       split_label: null,
@@ -100,7 +108,7 @@ export function NewOrderSheet({
         zeljeni_redoslijed: redoslijedB ? parseInt(redoslijedB) : null,
         najraniji_pocetak: najranijiB || null,
         izvedba: "PLANIRAN",
-        hitno: false,
+        hitni_rok: hitniRokB || null,
         status_sirovine: null,
         split_group_id: null,
         split_label: null,
@@ -139,6 +147,10 @@ export function NewOrderSheet({
     setNajraniji: (v: string) => void,
     najranijiDisplay: string,
     setNajranijiDisplay: (v: string) => void,
+    hitniRok: string,
+    setHitniRok: (v: string) => void,
+    hitniRokDisplay: string,
+    setHitniRokDisplay: (v: string) => void,
   ) => {
     const ic = compact ? inputDesktop : inputMobile;
     return (
@@ -170,7 +182,7 @@ export function NewOrderSheet({
               <input value={napomena} onChange={(e) => setNapomena(e.target.value)} placeholder="Napomene" className={ic} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className={compact ? "grid grid-cols-3 gap-2" : "grid grid-cols-3 gap-3"}>
             <div>
               <label className={labelClass}>Redoslijed</label>
               <input type="number" min="1" value={redoslijed} onChange={(e) => { setRedoslijed(e.target.value); if (e.target.value) setNajraniji(""); }} placeholder="1, 2, 3..." className={ic} />
@@ -178,6 +190,10 @@ export function NewOrderSheet({
             <div>
               <label className={labelClass}>Najraniji početak</label>
               <DateInput value={najraniji} displayValue={najranijiDisplay} onChange={(iso, disp) => { setNajraniji(iso); setNajranijiDisplay(disp); setRedoslijed(""); }} onDisplayChange={(v) => { setNajranijiDisplay(v); const iso = parseDateInput(v); if (iso) { setNajraniji(iso); setRedoslijed(""); } else if (!v) setNajraniji(""); }} className={ic} />
+            </div>
+            <div>
+              <label className={labelClass}>Hitni rok</label>
+              <DateInput value={hitniRok} displayValue={hitniRokDisplay} onChange={(iso, disp) => { setHitniRok(iso); setHitniRokDisplay(disp); }} onDisplayChange={(v) => { setHitniRokDisplay(v); const iso = parseDateInput(v); if (iso) setHitniRok(iso); else if (!v) setHitniRok(""); }} className={ic} />
             </div>
           </div>
         </div>
@@ -222,6 +238,8 @@ export function NewOrderSheet({
           redoslijedA, setRedoslijedA,
           najranijiA, setNajranijiA,
           najranijiDisplayA, setNajranijiDisplayA,
+          hitniRokA, setHitniRokA,
+          hitniRokDisplayA, setHitniRokDisplayA,
         )}
 
         {/* Dio B */}
@@ -234,6 +252,8 @@ export function NewOrderSheet({
           redoslijedB, setRedoslijedB,
           najranijiB, setNajranijiB,
           najranijiDisplayB, setNajranijiDisplayB,
+          hitniRokB, setHitniRokB,
+          hitniRokDisplayB, setHitniRokDisplayB,
         )}
 
         {/* Validacijske poruke */}

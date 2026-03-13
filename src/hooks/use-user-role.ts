@@ -62,6 +62,7 @@ export function useUserRole() {
     (field?: string): boolean => {
       if (role === "admin") return true;
       if (role === "material" && field === "status_sirovine" && sirovineEnabled) return true;
+      if (role === "material" && field === "hitni_rok") return true;
       return false;
     },
     [role, sirovineEnabled]

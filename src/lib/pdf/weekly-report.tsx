@@ -178,7 +178,7 @@ function DaySection({
             return (
               <View key={`${seg.order.order.id}-${i}`} style={rowStyle}>
                 <Text style={[s.tdBold, { width: WEEKLY_COLS.rnId }]}>
-                  {seg.order.order.hitno ? "🚨 " : ""}
+                  {seg.order.order.hitni_rok ? "🚨 " : ""}
                   {seg.order.order.rn_id}
                   {seg.order.order.split_label ? ` (${seg.order.order.split_label})` : ""}
                 </Text>

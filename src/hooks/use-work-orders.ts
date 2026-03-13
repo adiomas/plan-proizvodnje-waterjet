@@ -151,8 +151,8 @@ export function useWorkOrders() {
       return;
     }
 
-    // Sync dijeljenih polja na parnjaka (rok_isporuke, hitno, rn_id)
-    const SHARED_FIELDS = ["rok_isporuke", "hitno", "rn_id"] as const;
+    // Sync dijeljenih polja na parnjaka (rok_isporuke, rn_id)
+    const SHARED_FIELDS = ["rok_isporuke", "rn_id"] as const;
     const order = orders.find((o) => o.id === id);
     if (order?.split_group_id) {
       const sharedUpdates: Partial<WorkOrder> = {};

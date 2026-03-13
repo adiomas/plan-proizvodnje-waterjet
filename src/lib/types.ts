@@ -22,7 +22,7 @@ export interface WorkOrder {
   zeljeni_redoslijed: number | null;
   najraniji_pocetak: string | null;
   izvedba: "PLANIRAN" | "U TIJEKU" | "ZAVRŠEN";
-  hitno: boolean;
+  hitni_rok: string | null;
   status_sirovine: StatusSirovine;
   split_group_id: string | null;
   split_label: "A" | "B" | null;

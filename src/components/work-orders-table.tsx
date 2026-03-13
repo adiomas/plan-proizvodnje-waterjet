@@ -14,6 +14,7 @@ import {
 import type { Machine, WorkOrder, ScheduledOrder, StatusSirovine, UserRole } from "@/lib/types";
 import { formatDayDate, formatTime } from "@/lib/utils";
 import { DateInput } from "@/components/ui/date-input";
+import { parseISO, startOfDay, isAfter } from "date-fns";
 
 interface WorkOrdersViewProps {
   orders: WorkOrder[];
@@ -40,7 +41,7 @@ export const TOGGLEABLE_COLUMNS = [
   { id: "split_label", header: "Dio" },
   { id: "opis", header: "Opis" },
   { id: "napomena", header: "Napomena" },
-  { id: "hitno", header: "Hitno" },
+  { id: "hitni_rok", header: "Hitni rok" },
   { id: "rok_isporuke", header: "Rok" },
   { id: "status_sirovine", header: "Sirovine" },
   { id: "machine_id", header: "Stroj" },
@@ -250,7 +251,7 @@ function OrderCard({
         <div className="flex-1 px-3 py-2.5 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <span className="font-semibold text-[13px] text-gray-900 truncate">
-              {order.hitno && <span className="mr-1" title="Hitno">🚨</span>}
+              {order.hitni_rok && <span className="mr-1" title="Hitni rok">🚨</span>}
               {order.rn_id}
               {order.split_label && <span className="text-[10px] font-bold text-gray-400 ml-1">({order.split_label})</span>}
             </span>
@@ -613,7 +614,7 @@ function DesktopTable({
         value = parseFloat(rawValue) || 0;
       } else if (field === "zeljeni_redoslijed") {
         value = rawValue ? parseInt(rawValue) : null;
-      } else if (field === "rok_isporuke" || field === "najraniji_pocetak") {
+      } else if (field === "rok_isporuke" || field === "najraniji_pocetak" || field === "hitni_rok") {
         value = rawValue || null;
       } else if (field === "opis" || field === "napomena") {
         value = rawValue || null;
@@ -683,26 +684,35 @@ function DesktopTable({
         ),
       },
       {
-        id: "hitno",
-        accessorKey: "hitno",
-        header: "Hitno",
-        size: 60,
+        id: "hitni_rok",
+        accessorKey: "hitni_rok",
+        header: "Hitni rok",
+        size: 100,
         enableSorting: true,
         cell: ({ row }) => {
-          const isHitno = row.original.hitno;
-          const canToggle = canEdit?.("hitno");
+          const val = row.original.hitni_rok;
+          const sched = scheduleMap.get(row.original.id);
+          const hitniRokWarning = val && sched?.start &&
+            isAfter(startOfDay(sched.start), startOfDay(parseISO(val)));
           return (
-            <button
-              onClick={() => canToggle && onUpdate(row.original.id, { hitno: !isHitno })}
-              disabled={!canToggle}
-              className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap transition-colors ${
-                isHitno
-                  ? "bg-red-100 text-red-700 border border-red-300 animate-pulse"
-                  : "bg-gray-100 text-gray-400 border border-gray-200"
-              } ${canToggle ? "cursor-pointer hover:opacity-80" : "cursor-default opacity-60"}`}
-            >
-              {isHitno ? "DA" : "NE"}
-            </button>
+            <div className="flex items-center gap-1">
+              <EditableCell
+                value={val ?? ""}
+                displayValue={
+                  val
+                    ? val.split("-").reverse().join(".")
+                    : undefined
+                }
+                onSave={(v) =>
+                  handleFieldUpdate(row.original.id, "hitni_rok", v)
+                }
+                type="date"
+                disabled={!canEdit?.("hitni_rok")}
+              />
+              {hitniRokWarning && (
+                <span className="text-[9px] text-red-600 font-bold flex-shrink-0" title="Kasni s početkom">⚠</span>
+              )}
+            </div>
           );
         },
       },

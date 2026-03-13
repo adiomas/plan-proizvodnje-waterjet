@@ -67,7 +67,7 @@ export default function DashboardPage() {
   const [showOverrides, setShowOverrides] = useState(false);
   const [filterMachine, setFilterMachine] = useState("");
   const [filterIzvedba, setFilterIzvedba] = useState("");
-  const [filterHitno, setFilterHitno] = useState(false);
+  const [filterHitniRok, setFilterHitniRok] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [hoveredOrderId, setHoveredOrderId] = useState<string | null>(null);
@@ -90,8 +90,8 @@ export default function DashboardPage() {
       result = result.filter((o) => o.machine_id === filterMachine);
     if (filterIzvedba)
       result = result.filter((o) => o.izvedba === filterIzvedba);
-    if (filterHitno)
-      result = result.filter((o) => o.hitno === true);
+    if (filterHitniRok)
+      result = result.filter((o) => o.hitni_rok !== null);
     if (sirovineEnabled && filterSirovine) {
       if (filterSirovine === "null") {
         result = result.filter((o) => o.status_sirovine === null);
@@ -113,7 +113,7 @@ export default function DashboardPage() {
       });
     }
     return result;
-  }, [orders, machines, filterMachine, filterIzvedba, filterHitno, filterSirovine, sirovineEnabled, searchQuery]);
+  }, [orders, machines, filterMachine, filterIzvedba, filterHitniRok, filterSirovine, sirovineEnabled, searchQuery]);
 
   // Filtrirani scheduled
   const filteredScheduled = useMemo(() => {
@@ -122,10 +122,10 @@ export default function DashboardPage() {
       result = result.filter((s) => s.order.machine_id === filterMachine);
     if (filterIzvedba)
       result = result.filter((s) => s.order.izvedba === filterIzvedba);
-    if (filterHitno)
-      result = result.filter((s) => s.order.hitno === true);
+    if (filterHitniRok)
+      result = result.filter((s) => s.order.hitni_rok !== null);
     return result;
-  }, [scheduleResult.scheduled, filterMachine, filterIzvedba, filterHitno]);
+  }, [scheduleResult.scheduled, filterMachine, filterIzvedba, filterHitniRok]);
 
   // Quick stats
   const overlapCount = scheduleResult.scheduled.filter(
@@ -140,7 +140,7 @@ export default function DashboardPage() {
   const expiredCount = scheduleResult.scheduled.filter(
     (s) => s.stanje === "ROK ISTEKAO"
   ).length;
-  const hitnoCount = orders.filter((o) => o.hitno).length;
+  const hitniRokCount = orders.filter((o) => o.hitni_rok).length;
   const activeCount = orders.filter((o) => o.izvedba !== "ZAVRŠEN").length;
 
   const handleHoverOrder = (id: string | null) => {
@@ -178,7 +178,7 @@ export default function DashboardPage() {
     router.refresh();
   };
 
-  const hasActiveFilters = !!(filterMachine || filterIzvedba || filterSirovine || filterHitno);
+  const hasActiveFilters = !!(filterMachine || filterIzvedba || filterSirovine || filterHitniRok);
 
   if (machinesLoading || ordersLoading || overridesLoading || roleLoading) {
     return (
@@ -269,9 +269,9 @@ export default function DashboardPage() {
               {expiredCount} istekao
             </span>
           )}
-          {hitnoCount > 0 && (
+          {hitniRokCount > 0 && (
             <span className="hidden sm:inline-flex text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
-              {hitnoCount} hitno
+              {hitniRokCount} hitni rok
             </span>
           )}
           {/* Override modal button — admin only */}
@@ -458,17 +458,17 @@ export default function DashboardPage() {
                 </select>
               )}
               <button
-                onClick={() => setFilterHitno(!filterHitno)}
+                onClick={() => setFilterHitniRok(!filterHitniRok)}
                 className={`text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors ${
-                  filterHitno
+                  filterHitniRok
                     ? "bg-red-50 border-red-300 text-red-700"
                     : "border-gray-200 text-gray-400 hover:text-gray-600"
                 }`}
               >
-                🚨 Hitno
+                🚨 Hitni rok
               </button>
               {hasActiveFilters && (
-                <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); setFilterSirovine(""); setFilterHitno(false); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
+                <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); setFilterSirovine(""); setFilterHitniRok(false); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
                   Očisti
                 </button>
               )}
@@ -578,17 +578,17 @@ export default function DashboardPage() {
                   <option value="ZAVRŠEN">ZAVRŠEN</option>
                 </select>
                 <button
-                  onClick={() => setFilterHitno(!filterHitno)}
+                  onClick={() => setFilterHitniRok(!filterHitniRok)}
                   className={`text-xs font-medium px-2.5 py-1.5 rounded-md border transition-colors ${
-                    filterHitno
+                    filterHitniRok
                       ? "bg-red-50 border-red-300 text-red-700"
                       : "border-gray-200 text-gray-400 hover:text-gray-600"
                   }`}
                 >
-                  🚨 Hitno
+                  🚨 Hitni rok
                 </button>
                 {hasActiveFilters && (
-                  <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); setFilterHitno(false); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
+                  <button onClick={() => { setFilterMachine(""); setFilterIzvedba(""); setFilterHitniRok(false); }} className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 transition-colors">
                     Očisti
                   </button>
                 )}

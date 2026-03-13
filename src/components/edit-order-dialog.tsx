@@ -34,7 +34,12 @@ export function EditOrderDialog({
   const [rnId, setRnId] = useState(order.rn_id);
   const [rokIsporuke, setRokIsporuke] = useState(order.rok_isporuke ?? "");
   const [rokDisplay, setRokDisplay] = useState(isoToDisplay(order.rok_isporuke ?? ""));
-  const [hitno, setHitno] = useState(order.hitno);
+
+  // Hitni rok per-part
+  const [hitniRokA, setHitniRokA] = useState(order.hitni_rok ?? "");
+  const [hitniRokDisplayA, setHitniRokDisplayA] = useState(isoToDisplay(order.hitni_rok ?? ""));
+  const [hitniRokB, setHitniRokB] = useState(splitSibling?.hitni_rok ?? "");
+  const [hitniRokDisplayB, setHitniRokDisplayB] = useState(isoToDisplay(splitSibling?.hitni_rok ?? ""));
 
   // Dio A
   const [machineIdA, setMachineIdA] = useState(order.machine_id);
@@ -71,7 +76,7 @@ export function EditOrderDialog({
     const updatesA: Partial<WorkOrder> = {
       rn_id: rnId,
       rok_isporuke: rokIsporuke || null,
-      hitno,
+      hitni_rok: hitniRokA || null,
       machine_id: machineIdA,
       trajanje_h: parseFloat(trajanjeA),
       opis: opisA || null,
@@ -86,7 +91,7 @@ export function EditOrderDialog({
       const partBData: NewWorkOrder = {
         rn_id: rnId,
         rok_isporuke: rokIsporuke || null,
-        hitno,
+        hitni_rok: hitniRokB || null,
         machine_id: machineIdB,
         trajanje_h: parseFloat(trajanjeB),
         opis: opisB || null,
@@ -113,6 +118,7 @@ export function EditOrderDialog({
         napomena: napomenaB || null,
         zeljeni_redoslijed: redoslijedB ? parseInt(redoslijedB) : null,
         najraniji_pocetak: najranijiB || null,
+        hitni_rok: hitniRokB || null,
         izvedba: izvedbaB,
       });
     } else {
@@ -149,6 +155,10 @@ export function EditOrderDialog({
     setNajranijiDisplay: (v: string) => void,
     izvedba: WorkOrder["izvedba"],
     setIzvedba: (v: WorkOrder["izvedba"]) => void,
+    hitniRok: string,
+    setHitniRok: (v: string) => void,
+    hitniRokDisplay: string,
+    setHitniRokDisplay: (v: string) => void,
   ) => {
     const ic = compact ? inputDesktop : inputMobile;
     return (
@@ -188,7 +198,7 @@ export function EditOrderDialog({
               <input value={napomena} onChange={(e) => setNapomena(e.target.value)} placeholder="Napomene" disabled={!canEdit?.("napomena")} className={ic} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className={compact ? "grid grid-cols-3 gap-2" : "grid grid-cols-3 gap-3"}>
             <div>
               <label className={labelClass}>Redoslijed</label>
               <input type="number" min="1" value={redoslijed} onChange={(e) => { setRedoslijed(e.target.value); if (e.target.value) { setNajraniji(""); setNajranijiDisplay(""); } }} placeholder="1, 2, 3..." disabled={!canEdit?.("zeljeni_redoslijed")} className={ic} />
@@ -196,6 +206,10 @@ export function EditOrderDialog({
             <div>
               <label className={labelClass}>Najraniji početak</label>
               <DateInput value={najraniji} displayValue={najranijiDisplay} onChange={(iso, disp) => { setNajraniji(iso); setNajranijiDisplay(disp); setRedoslijed(""); }} onDisplayChange={(v) => { setNajranijiDisplay(v); const iso = parseDateInput(v); if (iso) { setNajraniji(iso); setRedoslijed(""); } else if (!v) setNajraniji(""); }} disabled={!canEdit?.("najraniji_pocetak")} className={ic} />
+            </div>
+            <div>
+              <label className={labelClass}>Hitni rok</label>
+              <DateInput value={hitniRok} displayValue={hitniRokDisplay} onChange={(iso, disp) => { setHitniRok(iso); setHitniRokDisplay(disp); }} onDisplayChange={(v) => { setHitniRokDisplay(v); const iso = parseDateInput(v); if (iso) setHitniRok(iso); else if (!v) setHitniRok(""); }} disabled={!canEdit?.("hitni_rok")} className={ic} />
             </div>
           </div>
         </div>
@@ -207,8 +221,8 @@ export function EditOrderDialog({
     const ic = compact ? inputDesktop : inputMobile;
     return (
       <div className={compact ? "space-y-2.5" : "space-y-4"}>
-        {/* Shared: RN ID + Rok + Hitno */}
-        <div className={compact ? "grid grid-cols-3 gap-2" : "grid grid-cols-3 gap-3"}>
+        {/* Shared: RN ID + Rok */}
+        <div className={compact ? "grid grid-cols-2 gap-2" : "grid grid-cols-2 gap-3"}>
           <div>
             <label className={labelClass}>RN ID <span className="text-red-400">*</span></label>
             <input value={rnId} onChange={(e) => setRnId(e.target.value)} required disabled={!canEdit?.("rn_id")} className={ic} />
@@ -216,21 +230,6 @@ export function EditOrderDialog({
           <div>
             <label className={labelClass}>Rok isporuke</label>
             <DateInput value={rokIsporuke} displayValue={rokDisplay} onChange={(iso, disp) => { setRokIsporuke(iso); setRokDisplay(disp); }} onDisplayChange={(v) => { setRokDisplay(v); const iso = parseDateInput(v); if (iso) setRokIsporuke(iso); else if (!v) setRokIsporuke(""); }} disabled={!canEdit?.("rok_isporuke")} className={ic} />
-          </div>
-          <div>
-            <label className={labelClass}>Hitno</label>
-            <button
-              type="button"
-              onClick={() => canEdit?.("hitno") && setHitno(!hitno)}
-              disabled={!canEdit?.("hitno")}
-              className={`w-full text-xs font-medium px-2.5 ${compact ? "py-1.5 rounded-lg" : "py-2.5 rounded-xl"} border transition-colors ${
-                hitno
-                  ? "bg-red-50 border-red-300 text-red-700"
-                  : "bg-white border-gray-200 text-gray-400"
-              } ${!canEdit?.("hitno") ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:opacity-80"}`}
-            >
-              {hitno ? "DA" : "NE"}
-            </button>
           </div>
         </div>
 
@@ -269,6 +268,8 @@ export function EditOrderDialog({
           najranijiA, setNajranijiA,
           najranijiDisplayA, setNajranijiDisplayA,
           izvedbaA, setIzvedbaA,
+          hitniRokA, setHitniRokA,
+          hitniRokDisplayA, setHitniRokDisplayA,
         )}
 
         {/* Dio B */}
@@ -282,6 +283,8 @@ export function EditOrderDialog({
           najranijiB, setNajranijiB,
           najranijiDisplayB, setNajranijiDisplayB,
           izvedbaB, setIzvedbaB,
+          hitniRokB, setHitniRokB,
+          hitniRokDisplayB, setHitniRokDisplayB,
         )}
 
         {sameMachine && (

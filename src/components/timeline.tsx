@@ -744,7 +744,7 @@ export function Timeline({
                         <div
                           key={`seg-${si}`}
                           className={`absolute rounded-sm transition-all duration-150 ${
-                            isOverlap ? "border-2 border-red-500" : s.order.hitno ? "border-2 border-red-600" : ""
+                            isOverlap ? "border-2 border-red-500" : s.order.hitni_rok ? "border-2 border-red-600" : ""
                           } ${isThisHovered && !isBeingDragged ? "ring-2 ring-blue-400 z-10" : ""} ${
                             draggable && onMoveOrder ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
                           }`}
@@ -825,7 +825,7 @@ export function Timeline({
           style={{ left: tooltip.x + 12, top: tooltip.y - 60 }}
         >
           <div className="font-bold">
-            {tooltip.order.order.hitno && "🚨 "}
+            {tooltip.order.order.hitni_rok && "🚨 "}
             {tooltip.order.order.najraniji_pocetak !== null && "⏳ "}
             {tooltip.order.order.rn_id}
             {tooltip.order.order.split_label && ` (Dio ${tooltip.order.order.split_label})`}
@@ -853,8 +853,8 @@ export function Timeline({
               Sirovina: {tooltip.order.order.status_sirovine === "IMA" ? "IMA" : tooltip.order.order.status_sirovine === "NEMA" ? "NEMA" : "ČEKA"}
             </div>
           )}
-          {tooltip.order.order.hitno && (
-            <div className="text-red-300 font-bold">HITNO</div>
+          {tooltip.order.order.hitni_rok && (
+            <div className="text-red-300 font-bold">🚨 Hitni rok: {tooltip.order.order.hitni_rok.split("-").reverse().join(".")}</div>
           )}
           {tooltip.order.stanje === "ROK ISTEKAO" && (
             <div className="text-red-300 font-bold">ROK ISTEKAO</div>

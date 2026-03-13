@@ -176,9 +176,16 @@ function scheduleAutoOrders(
   overrides: MachineOverride[],
   sirovineEnabled = false
 ): void {
-  // EDD: hitno nalozi ISPRED svih, zatim po roku (najhitniji prvo), null rok ide na kraj
+  // EDD: nalozi s hitni_rok ISPRED svih (sortirani po hitni_rok datumu), zatim po roku, null rok na kraj
   const sorted = [...autoOrders].sort((a, b) => {
-    if (a.hitno !== b.hitno) return a.hitno ? -1 : 1;
+    const aHasHitniRok = a.hitni_rok !== null;
+    const bHasHitniRok = b.hitni_rok !== null;
+    if (aHasHitniRok !== bHasHitniRok) return aHasHitniRok ? -1 : 1;
+    if (aHasHitniRok && bHasHitniRok) {
+      const aHr = parseISO(a.hitni_rok!).getTime();
+      const bHr = parseISO(b.hitni_rok!).getTime();
+      if (aHr !== bHr) return aHr - bHr;
+    }
     const aDeadline = a.rok_isporuke ? parseISO(a.rok_isporuke).getTime() : Infinity;
     const bDeadline = b.rok_isporuke ? parseISO(b.rok_isporuke).getTime() : Infinity;
     if (aDeadline !== bDeadline) return aDeadline - bDeadline;
@@ -256,16 +263,15 @@ function scheduleAutoOrders(
         (occupiedByMachine.get(anchor.machine_id) ?? []).push({ start: anchorResult.start, end: anchorResult.end });
       }
 
-      // Rasporedi parnjaka s proximity constraintom
-      let partnerEarliest: Date;
+      // Rasporedi parnjaka nezavisno (bez proximity constrainta)
+      let partnerEarliest = ganttStartDate;
+      if (partner.hitni_rok) {
+        const hrDate = parseISO(partner.hitni_rok);
+        if (isAfter(hrDate, partnerEarliest)) partnerEarliest = hrDate;
+      }
       if (partner.najraniji_pocetak) {
         const npDate = parseISO(partner.najraniji_pocetak);
-        partnerEarliest = isAfter(npDate, ganttStartDate) ? npDate : ganttStartDate;
-      } else if (anchorResult.start) {
-        // Proximity: početak istog dana kao sidro
-        partnerEarliest = startOfDay(anchorResult.start);
-      } else {
-        partnerEarliest = ganttStartDate;
+        if (isAfter(npDate, partnerEarliest)) partnerEarliest = npDate;
       }
 
       const partnerOccupied = occupiedByMachine.get(partner.machine_id) ?? [];
@@ -312,11 +318,13 @@ function scheduleOneAuto(
   const occupied = occupiedByMachine.get(order.machine_id) ?? [];
 
   let earliest = ganttStartDate;
+  if (order.hitni_rok) {
+    const hrDate = parseISO(order.hitni_rok);
+    if (isAfter(hrDate, earliest)) earliest = hrDate;
+  }
   if (order.najraniji_pocetak) {
     const npDate = parseISO(order.najraniji_pocetak);
-    if (isAfter(npDate, ganttStartDate)) {
-      earliest = npDate;
-    }
+    if (isAfter(npDate, earliest)) earliest = npDate;
   }
 
   const start = findEarliestStart(earliest, order.trajanje_h, occupied, order.machine_id, overrides);
