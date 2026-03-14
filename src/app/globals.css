@@ -25,13 +25,18 @@
 html {
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
   background-color: white;
 }
 
 body {
   overscroll-behavior-y: contain;
   overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* Vaul drawer treba slobodu za custom swipe geste */
+[vaul-drawer] {
+  touch-action: none;
 }
 
 /* Brzina tapa — spriječi callout menu na non-text elemente */
