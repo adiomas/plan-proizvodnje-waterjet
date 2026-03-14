@@ -571,7 +571,7 @@ export function BottomNavbar({
           </button>
         </div>
         {/* Safe area bottom */}
-        <div className="pb-safe bg-white" />
+        <div className="pb-safe bg-white" style={{ minHeight: 'env(safe-area-inset-bottom, 0px)' }} />
       </nav>
     </>
   );

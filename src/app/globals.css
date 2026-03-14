@@ -35,12 +35,14 @@ html {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   height: 100%;
+  height: -webkit-fill-available;
   background-color: white;
 }
 
 body {
   overscroll-behavior-y: contain;
   height: 100%;
+  height: -webkit-fill-available;
   overflow: hidden;
 }
 

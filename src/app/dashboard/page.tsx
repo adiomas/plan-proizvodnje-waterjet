@@ -222,7 +222,7 @@ export default function DashboardPage() {
 
   if (machinesLoading || ordersLoading || overridesLoading || roleLoading) {
     return (
-      <div className="h-[100dvh] flex items-center justify-center">
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-6 h-6 border-[1.5px] border-gray-900 border-t-transparent rounded-full animate-spin" />
           <span className="text-xs text-gray-400">
@@ -234,7 +234,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-white pb-navbar lg:pb-0 pt-safe">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-white pb-navbar lg:pb-0 pt-safe">
       {/* ======== HEADER ======== */}
       <header className="bg-white border-b border-gray-200 px-3 py-1.5 sm:py-2.5 pt-safe hidden lg:flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2.5">
