@@ -131,7 +131,7 @@ export function BottomNavbar({
       {/* ====== BACKDROP ====== */}
       {anySheetOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/30 animate-backdrop"
+          className="lg:hidden absolute inset-0 z-40 bg-black/30 animate-backdrop"
           onClick={closeAll}
         />
       )}
@@ -139,7 +139,7 @@ export function BottomNavbar({
       {/* ====== ALATI SHEET ====== */}
       {showAlati && isAdmin && (
         <div
-          className="lg:hidden fixed inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
+          className="lg:hidden absolute inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
           style={{ bottom: sheetBottom }}
         >
           <div className="flex justify-center pt-3 pb-1">
@@ -292,7 +292,7 @@ export function BottomNavbar({
       {/* ====== VIŠE SHEET ====== */}
       {showVise && (
         <div
-          className="lg:hidden fixed inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
+          className="lg:hidden absolute inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
           style={{ bottom: sheetBottom }}
         >
           <div className="flex justify-center pt-3 pb-1">
@@ -378,7 +378,7 @@ export function BottomNavbar({
       {/* ====== EXPORT SHEET ====== */}
       {showExport && (
         <div
-          className="lg:hidden fixed inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
+          className="lg:hidden absolute inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
           style={{ bottom: sheetBottom }}
         >
           <div className="flex justify-center pt-3 pb-1">
@@ -481,7 +481,7 @@ export function BottomNavbar({
       )}
 
       {/* ====== BOTTOM NAVBAR ====== */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white backdrop-blur-md border-t border-gray-200">
+      <nav className="lg:hidden relative z-50 flex-shrink-0 bg-white border-t border-gray-200">
         <div className="flex items-center justify-around h-14 px-2">
           {/* Nalozi */}
           <button
