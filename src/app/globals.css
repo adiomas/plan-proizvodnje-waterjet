@@ -34,15 +34,14 @@ html {
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
   background-color: white;
 }
 
 body {
   overscroll-behavior-y: contain;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Brzina tapa — spriječi callout menu na non-text elemente */
@@ -95,9 +94,3 @@ input, textarea, [contenteditable], .selectable {
   }
 }
 
-/* PWA standalone: bijela pozadina iza status bara */
-@media all and (display-mode: standalone) {
-  html {
-    background-color: white;
-  }
-}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, startOfDay, getDay, format, differenceInCalendarDays } from "date-fns";
 import type { Machine, ScheduledOrder, MachineOverride, OvertimeSuggestion } from "@/lib/types";
 import { formatDuration } from "@/components/ui/duration-input";
@@ -13,6 +13,7 @@ import {
   isWeekend,
   getWorkingHours,
 } from "@/lib/utils";
+import { usePinchZoom } from "@/hooks/use-pinch-zoom";
 
 interface TimelineProps {
   machines: Machine[];
@@ -79,6 +80,19 @@ export function Timeline({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragDeltaPx, setDragDeltaPx] = useState(0);
   const [unpinConfirm, setUnpinConfirm] = useState<{ orderId: string; x: number; y: number } | null>(null);
+  const [mobileDetail, setMobileDetail] = useState<ScheduledOrder | null>(null);
+
+  // Detekcija mobilnog uređaja
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Pinch-to-zoom
+  usePinchZoom({ containerRef: scrollRef, zoom, onZoomChange: setZoom });
 
   const dayWidth =
     zoom === "day" ? WORK_HOURS * 30 : zoom === "week" ? 120 : 36;
@@ -417,7 +431,9 @@ export function Timeline({
     return rows;
   }, [machines, scheduled]);
 
-  const ROW_HEIGHT = 40;
+  const ROW_HEIGHT = isMobile ? 56 : 40;
+  const SIDEBAR_WIDTH = isMobile ? 90 : 100;
+  const MIN_BAR_LABEL_WIDTH = isMobile ? 50 : 40;
 
   // Sati za "Dan" zoom header
   const hours = useMemo(() => {
@@ -441,29 +457,33 @@ export function Timeline({
           <button
             key={level}
             onClick={() => setZoom(level)}
-            className={`text-xs px-2 py-0.5 rounded ${
+            className={`text-xs rounded ${
+              isMobile ? "min-h-[32px] min-w-[32px] px-2.5 py-1" : "px-2 py-0.5"
+            } ${
               zoom === level
                 ? "bg-blue-600 text-white"
                 : "bg-gray-100 text-gray-600"
             }`}
           >
-            {level === "day" ? "Dan" : level === "week" ? "Tjedan" : "Mjesec"}
+            {level === "day" ? "Dan" : level === "week" ? "Tjedan" : "Mj."}
           </button>
         ))}
         <div className="flex-1" />
         <button
           onClick={scrollToToday}
-          className="text-xs px-2.5 py-1 rounded bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 font-medium"
+          className={`text-xs rounded bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 font-medium ${
+            isMobile ? "min-h-[32px] min-w-[32px] px-2 py-1" : "px-2.5 py-1"
+          }`}
         >
-          ← Danas
+          {isMobile ? "⊙" : "← Danas"}
         </button>
       </div>
 
-      <div ref={scrollRef} className="overflow-x-auto flex-1 min-h-0 overflow-y-auto">
-        <div style={{ width: dynamicTotalWidth + 100 }} className="relative">
+      <div ref={scrollRef} className="overflow-x-auto flex-1 min-h-0 overflow-y-auto" style={{ touchAction: "pan-x pan-y" }}>
+        <div style={{ width: dynamicTotalWidth + SIDEBAR_WIDTH }} className="relative">
           {/* Header */}
           {zoom === "day" && dayPositions ? (
-            <div style={{ marginLeft: 100 }}>
+            <div style={{ marginLeft: SIDEBAR_WIDTH }}>
               {/* Red s datumima */}
               <div className="flex">
                 {days.map((day, i) => {
@@ -474,7 +494,7 @@ export function Timeline({
                   return (
                     <div
                       key={i}
-                      className={`flex-shrink-0 text-center text-[10px] border-r border-gray-200 py-0.5 font-medium ${
+                      className={`flex-shrink-0 text-center ${isMobile ? "text-xs" : "text-[10px]"} border-r border-gray-200 py-0.5 font-medium ${
                         weekend
                           ? "bg-gray-100 text-gray-400"
                           : hasOv
@@ -516,7 +536,7 @@ export function Timeline({
                       {dayHours.map((h) => (
                         <div
                           key={h}
-                          className={`text-center text-[8px] border-r border-gray-100 py-0.5 ${
+                          className={`text-center ${isMobile ? "text-[10px]" : "text-[8px]"} border-r border-gray-100 py-0.5 ${
                             weekend
                               ? "bg-gray-100 text-gray-300"
                               : h >= WORKDAY_END
@@ -535,7 +555,7 @@ export function Timeline({
             </div>
           ) : zoom === "day" ? (
             /* Fallback for day zoom without dayPositions (shouldn't happen) */
-            <div style={{ marginLeft: 100 }}>
+            <div style={{ marginLeft: SIDEBAR_WIDTH }}>
               <div className="flex">
                 {days.map((day, i) => {
                   const weekend = getDay(day) === 0 || getDay(day) === 6;
@@ -575,7 +595,7 @@ export function Timeline({
             </div>
           ) : (
             /* Tjedan/Mjesec zoom: dvoslojni header (mjeseci + dani) */
-            <div style={{ marginLeft: 100 }}>
+            <div style={{ marginLeft: SIDEBAR_WIDTH }}>
               {/* Gornji red: Mjeseci */}
               <div className="flex">
                 {monthGroups?.map((mg, i) => (
@@ -627,7 +647,7 @@ export function Timeline({
               <div
                 className="flex items-center px-2 text-xs font-medium flex-shrink-0 border-r sticky left-0 z-10"
                 style={{
-                  width: 100,
+                  width: SIDEBAR_WIDTH,
                   backgroundColor: machine.color_light,
                   color: machine.color,
                 }}
@@ -811,6 +831,10 @@ export function Timeline({
                           }}
                           onClick={() => {
                             if (!dragOccurredRef.current) {
+                              if (isMobile) {
+                                setMobileDetail(mobileDetail?.order.id === s.order.id ? null : s);
+                                onHoverOrder?.(s.order.id);
+                              }
                               onClickOrder?.(s.order.id);
                             }
                           }}
@@ -837,7 +861,7 @@ export function Timeline({
                           }}
                         >
                           {si === 0 && (
-                            <span className={`text-white text-[9px] px-1 truncate block ${isThisHovered && !isBeingDragged ? "leading-[34px]" : "leading-[30px]"}`}>
+                            <span className={`text-white ${isMobile ? "text-[11px]" : "text-[9px]"} px-1 truncate block ${isThisHovered && !isBeingDragged ? (isMobile ? "leading-[50px]" : "leading-[34px]") : (isMobile ? "leading-[46px]" : "leading-[30px]")}`}>
                               {isPinned && onUnpinOrder && (
                                 <button
                                   className="inline-flex items-center hover:bg-white/30 rounded px-0.5 -ml-0.5"
@@ -857,7 +881,7 @@ export function Timeline({
                               )}
                               {isPinned && !onUnpinOrder && "⏳ "}
                               {isCeka && "⏳ "}
-                              {totalRight - totalLeft > 40 ? (
+                              {totalRight - totalLeft > MIN_BAR_LABEL_WIDTH ? (
                                 s.order.split_label
                                   ? `${s.order.rn_id} (${s.order.split_label})`
                                   : s.order.rn_id
@@ -876,8 +900,8 @@ export function Timeline({
         </div>
       </div>
 
-      {/* Tooltip */}
-      {tooltip && !dragState?.isDragging && (
+      {/* Tooltip — samo desktop */}
+      {!isMobile && tooltip && !dragState?.isDragging && (
         <div
           className="fixed z-50 bg-gray-900 text-white text-xs rounded shadow-lg px-3 py-2 pointer-events-none"
           style={{ left: tooltip.x + 12, top: tooltip.y - 60 }}
@@ -947,6 +971,50 @@ export function Timeline({
       )}
 
       {/* Unpin confirmation popover */}
+      {/* Mobile detail bottom sheet */}
+      {isMobile && mobileDetail && (
+        <div className="border-t bg-gray-900 text-white text-xs px-4 py-3 flex-shrink-0">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-sm">
+                {mobileDetail.order.hitni_rok && "🚨 "}
+                {mobileDetail.order.najraniji_pocetak !== null && "⏳ "}
+                {mobileDetail.order.rn_id}
+                {mobileDetail.order.split_label && ` (Dio ${mobileDetail.order.split_label})`}
+              </div>
+              {mobileDetail.order.opis && (
+                <div className="text-gray-300 mt-0.5 truncate">{mobileDetail.order.opis}</div>
+              )}
+              {mobileDetail.start && (
+                <div className="mt-1">
+                  {formatDayDate(mobileDetail.start)} {formatTime(mobileDetail.start)} → {mobileDetail.end && (
+                    <>{formatDayDate(mobileDetail.end)} {formatTime(mobileDetail.end)}</>
+                  )}
+                </div>
+              )}
+              <div className="mt-0.5">Trajanje: {formatDuration(mobileDetail.order.trajanje_h)}</div>
+              {mobileDetail.stanje === "ROK ISTEKAO" && (
+                <div className="text-red-300 font-bold mt-0.5">ROK ISTEKAO</div>
+              )}
+              {mobileDetail.order.hitni_rok && (
+                <div className="text-red-300 font-bold mt-0.5">
+                  Hitni rok: {mobileDetail.order.hitni_rok.split("-").reverse().join(".")}
+                </div>
+              )}
+              {mobileDetail.status !== "OK" && mobileDetail.status !== "ZAKAZANO" && (
+                <div className="text-red-300 font-bold mt-0.5">{mobileDetail.status}</div>
+              )}
+            </div>
+            <button
+              onClick={() => { setMobileDetail(null); onHoverOrder?.(null); }}
+              className="text-gray-400 hover:text-white ml-2 text-lg leading-none"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {unpinConfirm && (
         <div
           className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 text-xs"
