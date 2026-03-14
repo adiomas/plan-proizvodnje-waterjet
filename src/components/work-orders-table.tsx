@@ -70,10 +70,10 @@ export const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+    <div className="flex flex-col items-center justify-center py-20 text-gray-400">
       <svg
-        width="40"
-        height="40"
+        width="48"
+        height="48"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -84,8 +84,8 @@ function EmptyState() {
         <line x1="12" y1="8" x2="12" y2="16" />
         <line x1="8" y1="12" x2="16" y2="12" />
       </svg>
-      <p className="text-xs font-medium text-gray-400">Nema naloga</p>
-      <p className="text-[11px] text-gray-300 mt-1">Dodaj prvi nalog tipkom +</p>
+      <p className="text-sm font-medium text-gray-400">Nema naloga</p>
+      <p className="text-xs text-gray-400 mt-1">Dodaj prvi nalog tipkom +</p>
     </div>
   );
 }
@@ -116,7 +116,7 @@ function StatusBadge({ status }: { status: string }) {
       ? "bg-amber-50 text-amber-600"
       : "bg-gray-100 text-gray-500";
   return (
-    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${style}`}>
+    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${style}`}>
       {status}
     </span>
   );
@@ -142,7 +142,7 @@ function SirovinaBadge({
     <button
       onClick={onClick}
       disabled={!onClick}
-      className={`text-[11px] font-medium w-7 h-6 rounded border inline-flex items-center justify-center transition-colors ${config.className} ${
+      className={`text-[11px] font-medium w-8 h-7 rounded border inline-flex items-center justify-center transition-colors ${config.className} ${
         onClick ? "cursor-pointer hover:opacity-80" : "cursor-default"
       }`}
       title={status === "IMA" ? "Ima sirovinu" : status === "NEMA" ? "Nema sirovinu" : status === "CEKA" ? "Čeka sirovinu" : "Neprovjereno"}
@@ -164,7 +164,7 @@ function StanjeBadge({ stanje }: { stanje: string }) {
       ? "bg-gray-50 text-gray-400"
       : "bg-blue-50 text-blue-600";
   return (
-    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${style}`}>
+    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${style}`}>
       {stanje}
     </span>
   );
@@ -233,7 +233,7 @@ function OrderCard({
 
   return (
     <div
-      className={`mx-2 mb-1.5 rounded-lg border overflow-hidden transition-all ${
+      className={`mx-3 mb-2.5 rounded-xl border overflow-hidden shadow-sm transition-all ${
         isSirovineNema
           ? "border-red-200 bg-red-50/40"
           : isSirovineNull
@@ -251,25 +251,25 @@ function OrderCard({
     >
       <div className="flex">
         <div
-          className="w-0.5 flex-shrink-0"
+          className="w-1 flex-shrink-0"
           style={{ backgroundColor: machine?.color ?? "#D1D5DB" }}
         />
-        <div className="flex-1 px-2.5 py-1.5 min-w-0">
+        <div className="flex-1 px-3 py-2.5 min-w-0">
           {/* Row 1: RN ID + duration + actions */}
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-[13px] text-gray-900 truncate">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm text-gray-900 truncate">
               {order.hitni_rok && <span className="mr-0.5" title="Hitni rok">🚨</span>}
               {order.rn_id}
-              {order.split_label && <span className="text-[10px] font-bold text-gray-400 ml-0.5">({order.split_label})</span>}
+              {order.split_label && <span className="text-[11px] font-bold text-gray-500 ml-0.5">({order.split_label})</span>}
             </span>
-            <span className="text-[10px] text-gray-400 tabular-nums flex-shrink-0">
+            <span className="text-xs text-gray-500 tabular-nums flex-shrink-0">
               {formatDuration(order.trajanje_h)}
             </span>
             <div className="flex-1" />
             <button
               onClick={cycleIzvedba}
               disabled={!canEdit?.("izvedba")}
-              className={`text-[10px] font-medium px-2 py-0.5 rounded border active:scale-95 transition-transform ${
+              className={`text-[11px] font-medium px-2.5 py-1 rounded-md border active:scale-95 transition-transform ${
                 order.izvedba === "PLANIRAN"
                   ? "bg-white border-gray-200 text-gray-500"
                   : order.izvedba === "U TIJEKU"
@@ -282,10 +282,10 @@ function OrderCard({
             {canEdit?.() && onEdit && (
               <button
                 onClick={() => onEdit(order)}
-                className="text-gray-300 active:text-blue-500 p-0.5"
+                className="text-gray-400 active:text-blue-600 p-2 -m-1"
                 title="Uredi nalog"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                   <path d="m15 5 4 4" />
                 </svg>
@@ -302,9 +302,9 @@ function OrderCard({
                     onDelete(order.id);
                   }
                 }}
-                className="text-gray-200 active:text-red-500 p-0.5 -mr-0.5"
+                className="text-gray-400 active:text-red-600 p-2 -m-1"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="3 6 5 6 21 6" />
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                 </svg>
@@ -312,19 +312,19 @@ function OrderCard({
             )}
           </div>
           {/* Row 2: Machine + dates (single line) */}
-          <div className="flex items-center gap-1 mt-0.5 text-[10px] text-gray-400">
-            <span className="font-medium text-gray-500">
+          <div className="flex items-center gap-1 mt-1.5 text-xs text-gray-500">
+            <span className="font-medium text-gray-600">
               {machine?.name ?? "—"}
             </span>
             {sched?.start && (
               <>
-                <span className="text-gray-200">·</span>
+                <span className="text-gray-300">·</span>
                 <span className="tabular-nums">
                   {formatDayDate(sched.start)} {formatTime(sched.start)}
                 </span>
                 {sched.end && (
                   <>
-                    <span className="text-gray-200">→</span>
+                    <span className="text-gray-300">→</span>
                     <span className="tabular-nums">
                       {formatDayDate(sched.end)} {formatTime(sched.end)}
                     </span>
@@ -334,12 +334,12 @@ function OrderCard({
             )}
           </div>
           {order.opis && (
-            <p className="text-[10px] text-gray-500 truncate mt-0.5 leading-tight">
+            <p className="text-xs text-gray-600 truncate mt-1 leading-tight">
               {order.opis}
             </p>
           )}
           {/* Row 3: Badges (compact) */}
-          <div className="flex items-center gap-1 mt-1 flex-wrap">
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             {sirovineEnabled && (
               <SirovinaBadge
                 status={order.status_sirovine}

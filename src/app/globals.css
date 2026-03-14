@@ -19,6 +19,20 @@
   animation: sheet-slide-up 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
 
+/* Sheet dismiss animation */
+@keyframes sheet-slide-down {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+.animate-sheet-down {
+  animation: sheet-slide-down 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* Swipe handle touch area */
+.swipe-handle {
+  touch-action: none;
+}
+
 .animate-backdrop {
   animation: backdrop-fade-in 0.2s ease forwards;
 }

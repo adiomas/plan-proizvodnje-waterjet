@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { startOfDay } from "date-fns";
+import { useSwipeDismiss } from "@/hooks/use-swipe-dismiss";
 import type { UserRole, Machine, ScheduledOrder, MachineOverride } from "@/lib/types";
 import { DateInput, parseDateInput } from "@/components/ui/date-input";
 import {
@@ -93,6 +94,23 @@ export function BottomNavbar({
     setShowExport(false);
   };
 
+  const dismissAlati = useCallback(() => setShowAlati(false), []);
+  const dismissVise = useCallback(() => setShowVise(false), []);
+  const dismissExport = useCallback(() => setShowExport(false), []);
+
+  const { sheetRef: alatiRef, handleRef: alatiHandleRef, style: alatiStyle } = useSwipeDismiss({
+    onDismiss: dismissAlati,
+    enabled: showAlati,
+  });
+  const { sheetRef: viseRef, handleRef: viseHandleRef, style: viseStyle } = useSwipeDismiss({
+    onDismiss: dismissVise,
+    enabled: showVise,
+  });
+  const { sheetRef: exportRef, handleRef: exportHandleRef, style: exportStyle } = useSwipeDismiss({
+    onDismiss: dismissExport,
+    enabled: showExport,
+  });
+
   const handleTabPress = (tab: "nalozi" | "gant") => {
     closeAll();
     onTabChange(tab);
@@ -139,11 +157,12 @@ export function BottomNavbar({
       {/* ====== ALATI SHEET ====== */}
       {showAlati && isAdmin && (
         <div
+          ref={alatiRef}
           className="lg:hidden fixed inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
-          style={{ bottom: sheetBottom }}
+          style={{ bottom: sheetBottom, ...alatiStyle }}
         >
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-8 h-1 rounded-full bg-gray-300" />
+          <div ref={alatiHandleRef} className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing swipe-handle">
+            <div className="w-10 h-1 rounded-full bg-gray-300" />
           </div>
 
           <div className="px-5 pb-3 flex items-center justify-between">
@@ -163,27 +182,27 @@ export function BottomNavbar({
           {alertCount > 0 && (
             <div className="mx-5 mb-3 flex flex-wrap gap-1.5">
               {overlapCount > 0 && (
-                <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
+                <span className="text-[11px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
                   {overlapCount} preklapanje
                 </span>
               )}
               {lateCount > 0 && (
-                <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium border border-amber-100">
+                <span className="text-[11px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium border border-amber-100">
                   {lateCount} kasni
                 </span>
               )}
               {criticalCount > 0 && (
-                <span className="text-[10px] bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium border border-yellow-200">
+                <span className="text-[11px] bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium border border-yellow-200">
                   {criticalCount} kritično
                 </span>
               )}
               {expiredCount > 0 && (
-                <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-300">
+                <span className="text-[11px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold border border-red-300">
                   {expiredCount} istekao
                 </span>
               )}
               {hitniRokCount > 0 && (
-                <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
+                <span className="text-[11px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium border border-red-100">
                   {hitniRokCount} hitni rok
                 </span>
               )}
@@ -222,7 +241,7 @@ export function BottomNavbar({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-900">Prekovremeni</span>
-                    <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
+                    <span className="text-[11px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">
                       {overtimeFixableCount}
                     </span>
                   </div>
@@ -243,7 +262,7 @@ export function BottomNavbar({
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-900">Radno vrijeme</span>
                   {overridesCount > 0 && (
-                    <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full font-medium">
+                    <span className="text-[11px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full font-medium">
                       {overridesCount}
                     </span>
                   )}
@@ -292,11 +311,12 @@ export function BottomNavbar({
       {/* ====== VIŠE SHEET ====== */}
       {showVise && (
         <div
+          ref={viseRef}
           className="lg:hidden fixed inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
-          style={{ bottom: sheetBottom }}
+          style={{ bottom: sheetBottom, ...viseStyle }}
         >
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-8 h-1 rounded-full bg-gray-300" />
+          <div ref={viseHandleRef} className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing swipe-handle">
+            <div className="w-10 h-1 rounded-full bg-gray-300" />
           </div>
 
           <div className="px-5 pb-3 flex items-center justify-between">
@@ -370,7 +390,7 @@ export function BottomNavbar({
 
           {/* App info */}
           <div className="px-5 py-3 border-t border-gray-100">
-            <p className="text-[10px] text-gray-300 text-center">Plan Proizvodnje · Waterjet Cutting</p>
+            <p className="text-[11px] text-gray-400 text-center">Plan Proizvodnje · Waterjet Cutting</p>
           </div>
         </div>
       )}
@@ -378,11 +398,12 @@ export function BottomNavbar({
       {/* ====== EXPORT SHEET ====== */}
       {showExport && (
         <div
+          ref={exportRef}
           className="lg:hidden fixed inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
-          style={{ bottom: sheetBottom }}
+          style={{ bottom: sheetBottom, ...exportStyle }}
         >
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-8 h-1 rounded-full bg-gray-300" />
+          <div ref={exportHandleRef} className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing swipe-handle">
+            <div className="w-10 h-1 rounded-full bg-gray-300" />
           </div>
 
           <div className="px-5 pb-3 flex items-center justify-between">
@@ -425,7 +446,7 @@ export function BottomNavbar({
 
             {/* Machine select */}
             <label className="block">
-              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+              <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">
                 Stroj
               </span>
               <select
@@ -442,7 +463,7 @@ export function BottomNavbar({
 
             {/* Date input */}
             <label className="block">
-              <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+              <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wider">
                 {exportType === "daily" ? "Datum" : "Tjedan koji sadrži datum"}
               </span>
               <DateInput
@@ -501,7 +522,7 @@ export function BottomNavbar({
                 </span>
               )}
             </div>
-            <span className="text-[10px] font-medium leading-none">Nalozi</span>
+            <span className="text-[11px] font-medium leading-tight">Nalozi</span>
           </button>
 
           {/* Gant */}
@@ -516,7 +537,7 @@ export function BottomNavbar({
               <rect x="3" y="10" width="12" height="4" rx="1" />
               <rect x="3" y="16" width="15" height="4" rx="1" />
             </svg>
-            <span className="text-[10px] font-medium leading-none">Gant</span>
+            <span className="text-[11px] font-medium leading-tight">Gant</span>
           </button>
 
           {/* Center: + Novi */}
@@ -531,7 +552,7 @@ export function BottomNavbar({
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
               </div>
-              <span className="text-[10px] font-medium text-gray-900 mt-0.5 leading-none">Novi</span>
+              <span className="text-[11px] font-medium text-gray-900 mt-0.5 leading-tight">Novi</span>
             </button>
           )}
 
@@ -551,7 +572,7 @@ export function BottomNavbar({
                   <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white" />
                 )}
               </div>
-              <span className="text-[10px] font-medium leading-none">Alati</span>
+              <span className="text-[11px] font-medium leading-tight">Alati</span>
             </button>
           )}
 
@@ -567,7 +588,7 @@ export function BottomNavbar({
               <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
               <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
             </svg>
-            <span className="text-[10px] font-medium leading-none">Više</span>
+            <span className="text-[11px] font-medium leading-tight">Više</span>
           </button>
         </div>
         {/* Safe area bottom */}

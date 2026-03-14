@@ -111,7 +111,7 @@ function DurationPopover({
                   key={v}
                   type="button"
                   onClick={() => onSelect(v)}
-                  className={`px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                  className={`px-2.5 py-2 text-xs rounded-md transition-colors ${
                     v === currentValue
                       ? "bg-blue-600 text-white font-semibold"
                       : "text-gray-700 hover:bg-gray-100"
@@ -193,7 +193,7 @@ export function DurationInput({
         type="button"
         onClick={() => step(-1, STEP_HOUR)}
         disabled={disabled || isEmpty || numValue <= STEP_HOUR}
-        className="flex-shrink-0 w-6 h-full flex items-center justify-center text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors"
+        className="flex-shrink-0 w-8 h-full flex items-center justify-center text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors"
         tabIndex={-1}
         title="−1h"
       >
@@ -208,7 +208,7 @@ export function DurationInput({
         type="button"
         onClick={() => step(-1, STEP_FINE)}
         disabled={disabled || isEmpty || numValue <= MIN_VALUE}
-        className="flex-shrink-0 w-5 h-full flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors"
+        className="flex-shrink-0 w-9 h-full flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors"
         tabIndex={-1}
         title="−15m"
       >
@@ -229,7 +229,7 @@ export function DurationInput({
         type="button"
         onClick={() => step(1, STEP_FINE)}
         disabled={disabled}
-        className="flex-shrink-0 w-5 h-full flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors"
+        className="flex-shrink-0 w-9 h-full flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors"
         tabIndex={-1}
         title="+15m"
       >
@@ -243,7 +243,7 @@ export function DurationInput({
         type="button"
         onClick={() => step(1, STEP_HOUR)}
         disabled={disabled}
-        className="flex-shrink-0 w-6 h-full flex items-center justify-center text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors"
+        className="flex-shrink-0 w-8 h-full flex items-center justify-center text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors"
         tabIndex={-1}
         title="+1h"
       >

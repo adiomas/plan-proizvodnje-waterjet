@@ -54,12 +54,18 @@ export function MachineDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-5">
+    <div className="fixed inset-0 z-50 flex items-end lg:items-center lg:justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl lg:rounded-lg shadow-xl w-full lg:max-w-md p-5 max-h-[85dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {/* Mobile handle */}
+        <div className="lg:hidden flex justify-center -mt-2 mb-3">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold text-gray-800">Upravljanje strojevima</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
-            ×
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 -m-1 min-w-[44px] min-h-[44px] flex items-center justify-center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
@@ -100,13 +106,13 @@ export function MachineDialog({
                       setEditingId(m.id);
                       setEditName(m.name);
                     }}
-                    className="text-xs text-gray-400 hover:text-gray-600"
+                    className="text-xs text-gray-400 hover:text-gray-600 p-2 -m-1"
                   >
                     Uredi
                   </button>
                   <button
                     onClick={() => onDelete(m.id)}
-                    className="text-xs text-red-400 hover:text-red-600"
+                    className="text-xs text-red-400 hover:text-red-600 p-2 -m-1"
                   >
                     Obriši
                   </button>
@@ -133,7 +139,7 @@ export function MachineDialog({
                 <button
                   key={c.color}
                   onClick={() => setNewColorIdx(i)}
-                  className={`w-5 h-5 rounded-full border-2 ${
+                  className={`w-8 h-8 rounded-full border-2 ${
                     i === newColorIdx ? "border-gray-800" : "border-transparent"
                   }`}
                   style={{ backgroundColor: c.color }}

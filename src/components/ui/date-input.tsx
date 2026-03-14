@@ -132,7 +132,7 @@ function CalendarPopover({
       ref={ref}
       onMouseDown={(e) => e.preventDefault()}
       style={{ position: "fixed", top: pos.top, left: pos.left, visibility: visible ? "visible" : "hidden" }}
-      className="z-[9999] bg-white rounded-lg shadow-lg border border-gray-200 p-2 w-[240px] select-none"
+      className="z-[9999] bg-white rounded-lg shadow-lg border border-gray-200 p-2 w-[272px] select-none"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-1.5 px-1">
@@ -164,7 +164,7 @@ function CalendarPopover({
         {DAY_LABELS.map((d) => (
           <div
             key={d}
-            className="text-center text-[10px] font-medium text-gray-400 py-0.5"
+            className="text-center text-[11px] font-medium text-gray-400 py-0.5"
           >
             {d}
           </div>
@@ -184,7 +184,7 @@ function CalendarPopover({
               type="button"
               onClick={() => onSelect(day)}
               className={`
-                h-7 w-full text-[11px] rounded-md transition-colors
+                h-9 w-full text-xs rounded-md transition-colors
                 ${!inMonth ? "text-gray-300" : "text-gray-700 hover:bg-gray-100"}
                 ${isSelected ? "!bg-blue-600 !text-white font-semibold" : ""}
                 ${today && !isSelected ? "font-semibold text-blue-600 ring-1 ring-inset ring-blue-200" : ""}
@@ -201,7 +201,7 @@ function CalendarPopover({
         <button
           type="button"
           onClick={() => onSelect(new Date())}
-          className="text-[10px] text-blue-600 hover:text-blue-700 font-medium px-2 py-0.5 rounded hover:bg-blue-50 transition-colors"
+          className="text-[11px] text-blue-600 hover:text-blue-700 font-medium px-2 py-1 rounded hover:bg-blue-50 transition-colors"
         >
           Danas
         </button>
