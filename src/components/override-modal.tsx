@@ -32,7 +32,7 @@ export function OverrideModal({
   const [adding, setAdding] = useState(false);
 
   const dismissModal = useCallback(() => onClose(), [onClose]);
-  const { handleRef: swipeHandleRef, style: swipeStyle } = useSwipeDismiss({
+  const { sheetRef, handleRef: swipeHandleRef, backdropRef } = useSwipeDismiss({
     onDismiss: dismissModal,
     enabled: open,
   });
@@ -135,8 +135,8 @@ export function OverrideModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center lg:justify-center bg-black/30" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl lg:rounded-lg shadow-xl w-full lg:max-w-lg max-h-[85dvh] flex flex-col" style={swipeStyle} onClick={(e) => e.stopPropagation()}>
+    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-end lg:items-center lg:justify-center bg-black/30" onClick={onClose}>
+      <div ref={sheetRef} className="bg-white rounded-t-2xl lg:rounded-lg shadow-xl w-full lg:max-w-lg max-h-[85dvh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Mobile handle */}
         <div ref={swipeHandleRef} className="lg:hidden flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing swipe-handle">
           <div className="w-10 h-1 rounded-full bg-gray-300" />

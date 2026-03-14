@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { Machine } from "@/lib/types";
+import { useSwipeDismiss } from "@/hooks/use-swipe-dismiss";
 
 interface MachineDialogProps {
   open: boolean;
@@ -34,6 +35,12 @@ export function MachineDialog({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
 
+  const dismissDialog = useCallback(() => onClose(), [onClose]);
+  const { sheetRef, handleRef, backdropRef } = useSwipeDismiss({
+    onDismiss: dismissDialog,
+    enabled: open,
+  });
+
   if (!open) return null;
 
   const handleAdd = async () => {
@@ -54,10 +61,10 @@ export function MachineDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center lg:justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl lg:rounded-lg shadow-xl w-full lg:max-w-md p-5 max-h-[85dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div ref={backdropRef} className="fixed inset-0 z-50 flex items-end lg:items-center lg:justify-center bg-black/40" onClick={onClose}>
+      <div ref={sheetRef} className="bg-white rounded-t-2xl lg:rounded-lg shadow-xl w-full lg:max-w-md p-5 max-h-[85dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Mobile handle */}
-        <div className="lg:hidden flex justify-center -mt-2 mb-3">
+        <div ref={handleRef} className="lg:hidden flex justify-center -mt-2 mb-3 cursor-grab active:cursor-grabbing swipe-handle">
           <div className="w-10 h-1 rounded-full bg-gray-300" />
         </div>
         <div className="flex items-center justify-between mb-4">

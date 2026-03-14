@@ -98,15 +98,15 @@ export function BottomNavbar({
   const dismissVise = useCallback(() => setShowVise(false), []);
   const dismissExport = useCallback(() => setShowExport(false), []);
 
-  const { sheetRef: alatiRef, handleRef: alatiHandleRef, style: alatiStyle } = useSwipeDismiss({
+  const { sheetRef: alatiRef, handleRef: alatiHandleRef, backdropRef: alatiBackdropRef } = useSwipeDismiss({
     onDismiss: dismissAlati,
     enabled: showAlati,
   });
-  const { sheetRef: viseRef, handleRef: viseHandleRef, style: viseStyle } = useSwipeDismiss({
+  const { sheetRef: viseRef, handleRef: viseHandleRef, backdropRef: viseBackdropRef } = useSwipeDismiss({
     onDismiss: dismissVise,
     enabled: showVise,
   });
-  const { sheetRef: exportRef, handleRef: exportHandleRef, style: exportStyle } = useSwipeDismiss({
+  const { sheetRef: exportRef, handleRef: exportHandleRef, backdropRef: exportBackdropRef } = useSwipeDismiss({
     onDismiss: dismissExport,
     enabled: showExport,
   });
@@ -146,20 +146,19 @@ export function BottomNavbar({
 
   return (
     <>
-      {/* ====== BACKDROP ====== */}
-      {anySheetOpen && (
+      {/* ====== ALATI SHEET ====== */}
+      {showAlati && isAdmin && (
         <div
+          ref={alatiBackdropRef}
           className="lg:hidden fixed inset-0 z-40 bg-black/30 animate-backdrop"
           onClick={closeAll}
         />
       )}
-
-      {/* ====== ALATI SHEET ====== */}
       {showAlati && isAdmin && (
         <div
           ref={alatiRef}
           className="lg:hidden fixed inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
-          style={{ bottom: sheetBottom, ...alatiStyle }}
+          style={{ bottom: sheetBottom }}
         >
           <div ref={alatiHandleRef} className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing swipe-handle">
             <div className="w-10 h-1 rounded-full bg-gray-300" />
@@ -311,9 +310,16 @@ export function BottomNavbar({
       {/* ====== VIŠE SHEET ====== */}
       {showVise && (
         <div
+          ref={viseBackdropRef}
+          className="lg:hidden fixed inset-0 z-40 bg-black/30 animate-backdrop"
+          onClick={closeAll}
+        />
+      )}
+      {showVise && (
+        <div
           ref={viseRef}
           className="lg:hidden fixed inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
-          style={{ bottom: sheetBottom, ...viseStyle }}
+          style={{ bottom: sheetBottom }}
         >
           <div ref={viseHandleRef} className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing swipe-handle">
             <div className="w-10 h-1 rounded-full bg-gray-300" />
@@ -398,9 +404,16 @@ export function BottomNavbar({
       {/* ====== EXPORT SHEET ====== */}
       {showExport && (
         <div
+          ref={exportBackdropRef}
+          className="lg:hidden fixed inset-0 z-40 bg-black/30 animate-backdrop"
+          onClick={closeAll}
+        />
+      )}
+      {showExport && (
+        <div
           ref={exportRef}
           className="lg:hidden fixed inset-x-0 z-[45] bg-white rounded-t-2xl shadow-2xl animate-sheet-up"
-          style={{ bottom: sheetBottom, ...exportStyle }}
+          style={{ bottom: sheetBottom }}
         >
           <div ref={exportHandleRef} className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing swipe-handle">
             <div className="w-10 h-1 rounded-full bg-gray-300" />

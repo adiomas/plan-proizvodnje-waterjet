@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSwipeDismiss } from "@/hooks/use-swipe-dismiss";
 import type { OvertimeSuggestion, OvertimeSuggestionResult } from "@/lib/types";
 import { formatDayDate } from "@/lib/utils";
@@ -25,10 +25,9 @@ export function OvertimePanel({ result, open, onClose, onApprove, onApproveAll, 
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [approvedMap, setApprovedMap] = useState<Map<string, ApprovedEntry>>(new Map());
   const [undoing, setUndoing] = useState<Set<string>>(new Set());
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const dismissPanel = useCallback(() => onClose(), [onClose]);
-  const { handleRef: swipeHandleRef, style: swipeStyle } = useSwipeDismiss({
+  const { sheetRef, handleRef: swipeHandleRef, backdropRef } = useSwipeDismiss({
     onDismiss: dismissPanel,
     enabled: open,
   });
@@ -39,13 +38,13 @@ export function OvertimePanel({ result, open, onClose, onApprove, onApproveAll, 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      if (sheetRef.current && !sheetRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open, onClose]);
+  }, [open, onClose, sheetRef]);
 
   if (!open) return null;
 
@@ -120,12 +119,11 @@ export function OvertimePanel({ result, open, onClose, onApprove, onApproveAll, 
   return (
     <>
       {/* Backdrop — samo mobitel */}
-      <div className="sm:hidden fixed inset-0 bg-black/30 z-40" onClick={onClose} />
+      <div ref={backdropRef} className="sm:hidden fixed inset-0 bg-black/30 z-40" onClick={onClose} />
 
       <div
-        ref={panelRef}
+        ref={sheetRef}
         className="fixed inset-x-0 bottom-0 z-50 w-full rounded-t-2xl sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-1 sm:bottom-auto sm:w-[380px] sm:rounded-lg bg-white border border-gray-200 shadow-xl max-h-[75dvh] sm:max-h-none"
-        style={swipeStyle}
       >
         {/* Drag handle — samo mobitel */}
         <div ref={swipeHandleRef} className="sm:hidden flex justify-center pt-2 pb-2 cursor-grab active:cursor-grabbing swipe-handle">
