@@ -191,19 +191,35 @@ export function NewOrderSheet({
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">{label}</p>
         )}
         <div className={compact ? "space-y-2" : "space-y-3"}>
-          <div className={compact ? "grid grid-cols-2 gap-2" : "grid grid-cols-2 gap-3"}>
-            <div>
-              <label className={labelClass}>Stroj <span className="text-red-400">*</span></label>
-              <select value={machineId} onChange={(e) => setMachineId(e.target.value)} required className={`${ic} ${!machineId ? "text-gray-400" : ""}`}>
-                <option value="" disabled>Odaberi stroj...</option>
-                {machines.map((m) => (<option key={m.id} value={m.id}>{m.name}</option>))}
-              </select>
+          {compact ? (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelClass}>Stroj <span className="text-red-400">*</span></label>
+                <select value={machineId} onChange={(e) => setMachineId(e.target.value)} required className={`${ic} ${!machineId ? "text-gray-400" : ""}`}>
+                  <option value="" disabled>Odaberi stroj...</option>
+                  {machines.map((m) => (<option key={m.id} value={m.id}>{m.name}</option>))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Trajanje <span className="text-red-400">*</span></label>
+                <DurationInput value={trajanje} onChange={setTrajanje} className={ic} required />
+              </div>
             </div>
-            <div>
-              <label className={labelClass}>Trajanje <span className="text-red-400">*</span></label>
-              <DurationInput value={trajanje} onChange={setTrajanje} className={ic} required />
-            </div>
-          </div>
+          ) : (
+            <>
+              <div>
+                <label className={labelClass}>Stroj <span className="text-red-400">*</span></label>
+                <select value={machineId} onChange={(e) => setMachineId(e.target.value)} required className={`${ic} ${!machineId ? "text-gray-400" : ""}`}>
+                  <option value="" disabled>Odaberi stroj...</option>
+                  {machines.map((m) => (<option key={m.id} value={m.id}>{m.name}</option>))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Trajanje <span className="text-red-400">*</span></label>
+                <DurationInput value={trajanje} onChange={setTrajanje} className={ic} required />
+              </div>
+            </>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className={labelClass}>Opis</label>
@@ -377,12 +393,12 @@ export function NewOrderSheet({
           <div className="pb-4">
             {formFields(false)}
           </div>
-          <div className="sticky bottom-0 bg-white pt-3 pb-4 pb-safe border-t border-gray-100 -mx-5 px-5">
+          <div className="sticky bottom-0 bg-white pt-2 pb-3 pb-safe border-t border-gray-100 -mx-5 px-5">
             <div className="flex gap-3">
-              <button type="button" onClick={onClose} className="flex-1 py-3 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-[0.98] transition-transform">
+              <button type="button" onClick={onClose} className="flex-1 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 active:scale-[0.98] transition-transform">
                 Odustani
               </button>
-              <button type="submit" disabled={saving || !rokIsporuke || (!isTehnicka && (!!sameMachine || !parseFloat(trajanjeA) || (isSplit && !parseFloat(trajanjeB))))} className="flex-[2] py-3 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-emerald-600/20">
+              <button type="submit" disabled={saving || !rokIsporuke || (!isTehnicka && (!!sameMachine || !parseFloat(trajanjeA) || (isSplit && !parseFloat(trajanjeB))))} className="flex-[2] py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 disabled:opacity-50 active:scale-[0.98] transition-transform shadow-lg shadow-emerald-600/20">
                 {saving ? "Spremam..." : isTehnicka ? "Najavi nalog" : isSplit ? "Dodaj split nalog" : "Dodaj nalog"}
               </button>
             </div>

@@ -222,7 +222,7 @@ export default function DashboardPage() {
 
   if (machinesLoading || ordersLoading || overridesLoading || roleLoading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white">
+      <div className="h-screen flex items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-6 h-6 border-[1.5px] border-gray-900 border-t-transparent rounded-full animate-spin" />
           <span className="text-xs text-gray-400">

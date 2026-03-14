@@ -65,6 +65,10 @@ export function useSwipeDismiss({
     // --- Touch handlers ---
     const onTouchStart = (e: TouchEvent) => {
       if (!animReady || dismissing) return;
+      // Don't hijack scroll if content is scrolled
+      const target = e.target as HTMLElement;
+      const scrollable = target.closest('[data-swipe-scroll]');
+      if (scrollable && scrollable.scrollTop > 0) return;
       const touch = e.touches[0];
       startY = touch.clientY;
       startX = touch.clientX;
@@ -172,22 +176,17 @@ export function useSwipeDismiss({
       dy = 0;
     };
 
-    // Attach to handle (narrower touch target)
-    const handle = handleRef.current;
-    if (handle) {
-      handle.addEventListener("touchstart", onTouchStart, { passive: true });
-      handle.addEventListener("touchmove", onTouchMove, { passive: false });
-      handle.addEventListener("touchend", onTouchEnd, { passive: true });
-    }
+    // Attach to entire sheet (full sheet is drag target)
+    sheet.addEventListener("touchstart", onTouchStart, { passive: true });
+    sheet.addEventListener("touchmove", onTouchMove, { passive: false });
+    sheet.addEventListener("touchend", onTouchEnd, { passive: true });
 
     return () => {
       sheet.style.willChange = "";
       sheet.removeEventListener("animationend", onAnimEnd);
-      if (handle) {
-        handle.removeEventListener("touchstart", onTouchStart);
-        handle.removeEventListener("touchmove", onTouchMove);
-        handle.removeEventListener("touchend", onTouchEnd);
-      }
+      sheet.removeEventListener("touchstart", onTouchStart);
+      sheet.removeEventListener("touchmove", onTouchMove);
+      sheet.removeEventListener("touchend", onTouchEnd);
     };
   }, [enabled, threshold, velocityThreshold]);
 
