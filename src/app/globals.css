@@ -10,28 +10,10 @@
   to { transform: translateY(0); }
 }
 
-@keyframes backdrop-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 .animate-sheet-up {
   animation: sheet-slide-up 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
 
-/* Swipe handle touch area */
-.swipe-handle {
-  touch-action: none;
-}
-
-/* Hint for GPU-accelerated transforms during swipe */
-.swipe-dismissible {
-  will-change: transform;
-}
-
-.animate-backdrop {
-  animation: backdrop-fade-in 0.2s ease forwards;
-}
 
 /* ===== Scrollbar ===== */
 ::-webkit-scrollbar { width: 4px; height: 5px; }
@@ -93,6 +75,12 @@ input, textarea, [contenteditable], .selectable {
 /* ===== Bottom Navbar padding ===== */
 .pb-navbar {
   padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 1024px) {
+  .pb-navbar {
+    padding-bottom: 0;
+  }
 }
 
 /* lg:pb-safe — safe area only on desktop (where navbar doesn't handle it) */

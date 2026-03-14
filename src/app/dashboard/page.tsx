@@ -234,9 +234,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-white pt-safe pb-navbar lg:pb-0">
+    <div className="h-screen flex flex-col overflow-hidden bg-white pt-safe pb-navbar">
       {/* ======== HEADER ======== */}
-      <header className="bg-white border-b border-gray-200 px-3 py-1.5 sm:py-2.5 pt-safe hidden lg:flex items-center justify-between flex-shrink-0">
+      <header className="bg-white border-b border-gray-200 px-3 py-1.5 sm:py-2.5 hidden lg:flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-md bg-gray-900 flex items-center justify-center flex-shrink-0">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -281,7 +281,7 @@ export default function DashboardPage() {
           {/* Info button */}
           <button
             onClick={() => setShowInfo(true)}
-            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-md hover:bg-gray-100 transition-colors flex items-center justify-center"
             title="Upute"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -389,7 +389,7 @@ export default function DashboardPage() {
           {/* Logout */}
           <button
             onClick={handleLogout}
-            className="text-gray-400 hover:text-gray-600 text-[11px] transition-colors"
+            className="text-gray-400 hover:text-gray-600 text-[11px] p-1.5 rounded-md hover:bg-gray-100 transition-colors"
           >
             Odjava
           </button>
