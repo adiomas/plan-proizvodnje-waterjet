@@ -34,10 +34,15 @@ html {
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: white;
 }
 
 body {
   overscroll-behavior-y: contain;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Brzina tapa — spriječi callout menu na non-text elemente */
