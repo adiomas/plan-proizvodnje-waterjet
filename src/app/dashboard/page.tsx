@@ -234,7 +234,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-white pt-safe">
+    <div className="h-screen flex flex-col overflow-hidden bg-white pt-safe pb-navbar lg:pb-0">
       {/* ======== HEADER ======== */}
       <header className="bg-white border-b border-gray-200 px-3 py-1.5 sm:py-2.5 pt-safe hidden lg:flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2.5">
