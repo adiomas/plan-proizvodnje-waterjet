@@ -89,3 +89,10 @@ input, textarea, [contenteditable], .selectable {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* PWA standalone: bijela pozadina iza status bara */
+@media all and (display-mode: standalone) {
+  html {
+    background-color: white;
+  }
+}
